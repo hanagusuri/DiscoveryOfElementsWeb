@@ -9,6 +9,10 @@ require("../elements_distill.js");
 require("../elements_electric.js");
 require("../elements_cells.js");
 require("../elements_organic.js");
+require("../elements_chem.js");
+require("../elements_dyn.js");
+require("../elements_yield.js");
+require("../elements_yield2.js");
 const items = {};
 for (const r of D.ITEM_ROWS) {
   if (items[r[0]]) throw new Error("duplicate item " + r[0]);
@@ -88,6 +92,22 @@ if (noSym.length) errs.push("周期表に対応アイテムなし: " + noSym.joi
 const missing = Object.keys(items).filter((i) => !have.has(i));
 if (missing.length) errs.push("到達不能: " + missing.join(", "));
 if (boughtT.size !== D.TECHS.length) errs.push("未購入の技術: " + D.TECHS.filter((t) => !boughtT.has(t.id)).map((t) => t.id).join(", "));
+// 収率: 各モデルが、レシピの温度窓と圧力段階のどこかで、しきい値を超えられるか
+if (D.YIELDS) for (const [key, m] of Object.entries(D.YIELDS)) {
+  const row = D.RECIPE_ROWS.find((r) => [...r[0]].sort().join("+") === key); if (!row) { errs.push("収率モデルのレシピなし: " + key); continue; }
+  const win = (row[3] && row[3].t) || [1, 5]; let best = 0;
+  for (let lv = win[0]; lv <= win[1]; lv++) for (const pl of D.PRESS_LEVELS) { const yy = D.yieldOf(key, D.TEMP_C[lv], pl.p, false); if (yy) best = Math.max(best, yy.y); }
+  if (best < m.threshold) errs.push("収率が届かない: " + key + " 最大 " + best.toFixed(3));
+}
+// 反応式: 原子数が釣り合っているか、化学種と ΔfH が揃っているか
+if (D.EQUATIONS) {
+  for (const eq of D.EQUATIONS) {
+    const tot = (side) => { const c = {}; for (const [k, id] of side) { const sp = D.speciesInfo(id); if (!sp) { errs.push("反応式の化学種なし: " + eq.id + " " + id); return null; } for (const [el, p] of Object.entries(sp.prof)) c[el] = (c[el] || 0) + k * p.n; } return c; };
+    const L = tot(eq.L), R = tot(eq.R); if (!L || !R) continue;
+    for (const el of new Set([...Object.keys(L), ...Object.keys(R)])) if ((L[el] || 0) !== (R[el] || 0)) errs.push("反応式が釣り合わない: " + eq.id + " " + el + " " + (L[el] || 0) + "≠" + (R[el] || 0));
+    if (eq.dh === undefined) for (const [, id] of [...eq.L, ...eq.R]) if (D.HF[id] === undefined && !(D.SPECIES[id] && D.HF[id] !== undefined)) errs.push("ΔfH なし: " + eq.id + " " + id);
+  }
+}
 console.log(`items=${Object.keys(items).length} recipes=${D.RECIPE_ROWS.length} techs=${D.TECHS.length} leftoverPt=${pt}`);
 if (errs.length) { console.error(errs.join("\n")); process.exit(1); }
 console.log("OK: すべてのアイテムに到達可能");

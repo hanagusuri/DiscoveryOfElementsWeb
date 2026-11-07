@@ -19,7 +19,7 @@
   let slots = [], amts = []; // 素材IDと、それぞれの量
   let filter = "all";
   let busy = false;
-  let temp = 2, sealed = false, ground = false;
+  let temp = 2, sealed = false, ground = false, press = 1; // press: 圧力(atm)
   let cooling = 0;
   let dialT = null, dialMix = null;
   let srcSel = null, cells = 1, dynV = 12, anode = null, cathode = null; // 電気回路 // 蒸留の温度ダイヤル
@@ -296,12 +296,14 @@
   function renderMol() {
     const body = $("molBody"); if (!body) return;
     if (!has("atom") && !S.cheat) { body.innerHTML = `<p class="lead">🔒 物質が「原子」のつながりでできていると分かる(原子論)と、分子の構造が見えるようになる。</p>`; return; }
-    const tabs = ["構造図鑑", "化学結合", "異性体"].map((n, i) => `<button data-msub="${i}" class="${molSub === i ? "on" : ""}">${n}</button>`).join("");
+    const tabs = ["構造図鑑", "化学結合", "異性体"].concat(window.EODX ? EODX.subs : []).map((n, i) => `<button data-msub="${i}" class="${molSub === i ? "on" : ""}">${n}</button>`).join("");
     let html = `<div class="chips msub">${tabs}</div>`;
     if (molSub === 0) html += molSel && (MOLS[molSel] || isMetalItem(molSel)) ? molDetail(molSel) : molList();
     else if (molSub === 1) html += bondsTab();
-    else html += isomersTab();
+    else if (molSub === 2) html += isomersTab();
+    else if (window.EODX) html += EODX.render(molSub - 3);
     body.innerHTML = html;
+    if (window.EODX && molSub >= 3) EODX.after(molSub - 3);
     updateEN();
   }
   function updateEN() {
@@ -596,7 +598,7 @@
     $("cond").innerHTML =
       `<div class="row"><span class="lbl">温度</span><div class="temps">` +
       TEMPS.slice(1).map((t, i) => { const l = i + 1, ok = tempUnlocked(l); return `<button data-temp="${l}" class="${temp === l ? "on" : ""} ${ok ? "" : "lock"}">${ok ? t.name : "🔒"}<small>${ok ? t.c : "？"}</small></button>`; }).join("") +
-      `</div></div><div class="row"><span class="lbl">容器</span><button class="seal ${sealed ? "on" : ""} ${sealUnlocked() ? "" : "lock"}" data-seal="1">${sealUnlocked() ? (sealed ? "密閉する(空気を断つ)" : "開放(空気あり)") : "🔒 容器が必要"}</button></div><div class="row"><span class="lbl">粒度</span><button class="seal ${ground ? "on" : ""} ${has("mortar") ? "" : "lock"}" data-grind="1">${has("mortar") ? (ground ? "粉末(すり潰す)" : "塊のまま") : "🔒 乳鉢が必要"}</button></div><div class="row"><span class="lbl">冷却</span><div class="chipset">${DATA.COOL_NAME.map((n, i) => { const ok = !DATA.COOL_NEED[i] || has(DATA.COOL_NEED[i]); return `<button class="seal ${cooling === i ? "on" : ""} ${ok ? "" : "lock"}" data-cool="${i}">${ok ? n : "🔒"}${ok && i ? ` ${COOL_C[i]}℃` : ""}</button>`; }).join("")}</div></div><div class="perf">熱の安定度 <b>${Math.round((1 - drift()) * 100)}%</b> ・ 分離効率 <b>×${fmt(efficiency())}</b></div>`;
+      `</div></div><div class="row"><span class="lbl">容器</span><button class="seal ${sealed ? "on" : ""} ${sealUnlocked() ? "" : "lock"}" data-seal="1">${sealUnlocked() ? (sealed ? "密閉する(空気を断つ)" : "開放(空気あり)") : "🔒 容器が必要"}</button></div><div class="row"><span class="lbl">粒度</span><button class="seal ${ground ? "on" : ""} ${has("mortar") ? "" : "lock"}" data-grind="1">${has("mortar") ? (ground ? "粉末(すり潰す)" : "塊のまま") : "🔒 乳鉢が必要"}</button></div><div class="row"><span class="lbl">圧力</span><div class="chipset">${DATA.PRESS_LEVELS.map((l) => { const ok = !l.need || has(l.need); return `<button class="seal ${press === l.p ? "on" : ""} ${ok ? "" : "lock"}" data-press="${l.p}">${ok ? l.p + "気圧" : "🔒"}</button>`; }).join("")}</div></div><div class="row"><span class="lbl">冷却</span><div class="chipset">${DATA.COOL_NAME.map((n, i) => { const ok = !DATA.COOL_NEED[i] || has(DATA.COOL_NEED[i]); return `<button class="seal ${cooling === i ? "on" : ""} ${ok ? "" : "lock"}" data-cool="${i}">${ok ? n : "🔒"}${ok && i ? ` ${COOL_C[i]}℃` : ""}</button>`; }).join("")}</div></div><div class="perf">熱の安定度 <b>${Math.round((1 - drift()) * 100)}%</b> ・ 分離効率 <b>×${fmt(efficiency())}</b></div>`;
   }
 
   function renderProc() {
@@ -636,7 +638,7 @@
     renderProc();
     $("slots").innerHTML = Array.from({ length: MAX_SLOTS }, (_, i) => {
       const id = slots[i];
-      const body = id ? `<div data-slot="${i}" class="sbody">${items[id].emoji}<small>${items[id].name}</small></div><div class="stp"><b data-amt="${i}:-1">−</b><span>${amts[i]}</span><b data-amt="${i}:1">+</b></div>` : `<small>空き</small>`;
+      const body = id ? `<div data-slot="${i}" class="sbody">${items[id].emoji}<small>${items[id].name}</small></div><div class="stp"><b data-amt="${i}:-1">−</b><span>${amts[i]}${has("mole") ? "mol" : ""}</span><b data-amt="${i}:1">+</b></div>` : `<small>空き</small>`;
       return (i ? '<span class="plus">+</span>' : "") + `<div class="slot ${id ? "filled" : ""}">${body}</div>`;
     }).join("");
     $("btnRun").disabled = busy || slots.length === 0;
@@ -826,8 +828,21 @@
         r.inp.forEach((id) => { if (PH[id] && id !== "fire") { const tr = transitions(id, Tn); if (tr.kinds.length) recordPhase(id, tr); } });
         checkPhaseInsights();
       }
+      // 収率: 化学平衡と反応速度で、成功・不成功と収量が決まる
+      let yNote = "";
+      const ym = DATA.yieldOf ? DATA.yieldOf(r.key, TEMP_C[tEff], press, sealed) : null;
+      if (ym) {
+        if (ym.y < ym.threshold) { say(`${names} … ${ym.what}はほとんど得られなかった(収率 ${(ym.y * 100).toFixed(1)}%)。${ym.why}`); renderLab(); return; }
+        yNote = ` 📊収率${(ym.y * 100).toFixed(0)}%`;
+        grantConcept("yield");
+        S.bestY = S.bestY || {};
+        const prev = S.bestY[r.key] || 0; let bonus = 0;
+        if (ym.y > prev) { [0.1, 0.3, 0.6].forEach((m) => { if (prev < m && ym.y >= m) bonus += 2; }); S.bestY[r.key] = ym.y; }
+        if (bonus) { S.pt += bonus; yNote += `(自己ベスト +${bonus}pt)`; }
+      }
+      const eqNote = (window.EODX ? EODX.onRecipe(r) : "") + yNote; // 反応式・熱の観察・収率
       const fresh_ = r.out.filter((o) => !has(o));
-      if (!fresh_.length) { say(`${names} … 既に知っている結果だ。`); renderLab(); return; }
+      if (!fresh_.length) { say(`${names} … 既に知っている結果だ。${eqNote}`); renderLab(); return; }
       if (r.repeat) {
         const n = (S.prog[r.key] || 0) + efficiency();
         if (n < r.repeat - 1e-9) {
@@ -849,7 +864,7 @@
         if (!has("safety_first")) { S.have.push("safety_first"); S.seen.push("safety_first"); toast("⛑️ 「安全第一」を得た"); }
       }
       S.pt += gain;
-      say(`発見: ${fresh_.map((o) => items[o].name).join("、")} (+${gain}pt)`);
+      say(`発見: ${fresh_.map((o) => items[o].name).join("、")} (+${gain}pt)${eqNote}`);
       const newEra = checkEra();
       save(); slots = []; amts = []; render();
       const body = fresh_.length === 1
@@ -889,9 +904,9 @@
 
   // ---- イベント ----
   document.addEventListener("click", (e) => {
-    const t = e.target.closest("[data-id],[data-slot],[data-amt],[data-f],[data-tab],[data-tech],[data-temp],[data-seal],[data-grind],[data-proc],[data-cool],[data-dial],[data-still],[data-esrc],[data-evolt],[data-eel],[data-msub],[data-mol],[data-molback],[data-el]");
+    const t = e.target.closest("[data-id],[data-slot],[data-amt],[data-f],[data-tab],[data-tech],[data-temp],[data-seal],[data-grind],[data-proc],[data-cool],[data-press],[data-dial],[data-still],[data-esrc],[data-evolt],[data-eel],[data-msub],[data-mol],[data-molback],[data-el]");
     if (t) {
-      if (t.dataset.amt) { if (busy) return; const [i, dlt] = t.dataset.amt.split(":").map(Number); amts[i] = Math.min(MAX_AMT, Math.max(1, amts[i] + dlt)); renderLab(); }
+      if (t.dataset.amt) { if (busy) return; const [i, dlt] = t.dataset.amt.split(":").map(Number); if (dlt < 0 && amts[i] <= 1) { slots.splice(i, 1); amts.splice(i, 1); } else amts[i] = Math.min(MAX_AMT, amts[i] + dlt); renderLab(); }
       else if (t.dataset.id) addSlot(t.dataset.id);
       else if (t.dataset.slot !== undefined) { if (!busy) { slots.splice(+t.dataset.slot, 1); amts.splice(+t.dataset.slot, 1); renderLab(); } }
       else if (t.dataset.f) { filter = t.dataset.f; renderLab(); }
@@ -906,6 +921,7 @@
       else if (t.dataset.eel) { if (busy) return; const l = eAvail(); if (!l.length) return; if (t.dataset.eel === "a") anode = l[(l.indexOf(anodeId()) + 1) % l.length]; else cathode = l[(l.indexOf(cathodeId()) + 1) % l.length]; renderLab(); }
       else if (t.dataset.dial) { if (busy) return; const mix = distillMix(); if (!mix) return; const [lo, hi] = dialRange(mix); dialT = Math.min(hi, Math.max(lo, dialT + (+t.dataset.dial))); renderLab(); }
       else if (t.dataset.still) { if (busy) return; S.still = null; const mix = distillMix(); if (mix) dialT = DIST[mix].start; save(); renderLab(); toast("仕込み直した"); }
+      else if (t.dataset.press) { if (busy) return; const lv = DATA.PRESS_LEVELS.find((l) => l.p === +t.dataset.press); if (!lv.need || has(lv.need)) { press = lv.p; renderLab(); } else toast("まだこの圧力は作れない"); }
       else if (t.dataset.cool) { if (busy) return; const i = +t.dataset.cool; const need = DATA.COOL_NEED[i]; if (!need || has(need)) { cooling = i; renderLab(); } else toast("まだこの温度まで冷やせない"); }
       else if (t.dataset.grind) { if (busy) return; if (has("mortar")) { ground = !ground; renderCond(); } else toast("細かくするには、すり潰す道具が必要だ"); }
       else if (t.dataset.proc) {
@@ -935,6 +951,8 @@
   $("btnCheat").onclick = () => { S.cheat = !S.cheat; save(); render(); toast("チートモード " + (S.cheat ? "ON" : "OFF")); };
   $("btnReset").onclick = () => { if (confirm("セーブデータを消去して最初からやり直しますか?")) { const ch = S.cheat; S = fresh(); S.cheat = ch; slots = []; amts = []; save(); render(); } };
 
+  window.EOD = { S: () => S, has, items, order, ptOf, grantConcept, save, render, toast, say, DATA, MolViz, showCard };
+  if (window.EODX) EODX.init(window.EOD);
   render();
   if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(() => {});
 })();

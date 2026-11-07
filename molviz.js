@@ -3,7 +3,7 @@
   "use strict";
   // ---- 基礎データ ----
   const ORG = { B: [3], C: [4], N: [3, 5], O: [2], P: [3, 5], S: [2, 4, 6], F: [1], Cl: [1], Br: [1], I: [1] };
-  const MASS = { H: 1.008, B: 10.81, C: 12.011, N: 14.007, O: 15.999, F: 18.998, Na: 22.99, Mg: 24.305, Al: 26.982, Si: 28.086, P: 30.974, S: 32.06, Cl: 35.45, K: 39.098, Ca: 40.078, Ti: 47.867, Fe: 55.845, Cu: 63.546, Zn: 65.38, Br: 79.904, Ag: 107.87, I: 126.904, Hg: 200.59, Pb: 207.2, Au: 196.967, Pt: 195.084, Li: 6.94 };
+  const MASS = { H: 1.008, B: 10.81, C: 12.011, N: 14.007, O: 15.999, F: 18.998, Na: 22.99, Mg: 24.305, Al: 26.982, Si: 28.086, P: 30.974, S: 32.06, Cl: 35.45, K: 39.098, Ca: 40.078, Ti: 47.867, Fe: 55.845, Cu: 63.546, Zn: 65.38, Br: 79.904, Ag: 107.87, I: 126.904, Hg: 200.59, Pb: 207.2, Au: 196.967, Pt: 195.084, Li: 6.94, Be: 9.012, Sn: 118.71, Ba: 137.327, Mn: 54.938, Cr: 51.996, Ni: 58.693, Co: 58.933, W: 183.84, U: 238.029, He: 4.003, Ne: 20.18, Ar: 39.948, Kr: 83.798, Xe: 131.293, Sr: 87.62, Rb: 85.468, Cs: 132.905, Cd: 112.414, Sb: 121.76, As: 74.922, Bi: 208.98, Se: 78.971, Ra: 226 };
   const EN = { H: 2.2, Li: 0.98, Be: 1.57, B: 2.04, C: 2.55, N: 3.04, O: 3.44, F: 3.98, Na: 0.93, Mg: 1.31, Al: 1.61, Si: 1.9, P: 2.19, S: 2.58, Cl: 3.16, K: 0.82, Ca: 1.0, Ti: 1.54, Cr: 1.66, Mn: 1.55, Fe: 1.83, Co: 1.88, Ni: 1.91, Cu: 1.9, Zn: 1.65, Br: 2.96, Ag: 1.93, I: 2.66, Pt: 2.28, Au: 2.54, Hg: 2.0, Pb: 2.33, Sn: 1.96, Ba: 0.89, Sr: 0.95, Rb: 0.82, Cs: 0.79, Xe: 2.6 };
   const METALS = new Set(["Li", "Be", "Na", "Mg", "Al", "K", "Ca", "Ti", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn", "Ag", "Au", "Pt", "Hg", "Pb", "Sn", "Ba", "Sr", "Rb", "Cs", "Cd"]);
   const VE = { H: 1, C: 4, N: 5, O: 6, F: 7, Cl: 7, Br: 7, I: 7, S: 6, P: 5, B: 3, Si: 4 };
@@ -379,6 +379,43 @@
     return s + `</g></svg>`;
   }
 
-  const api = { parse, formulaOf, massOf, bondList, shapes, classify, toSVG, ionicLattice, metalLattice, EN, MASS, METALS, BOND_DATA, layout };
+  // ---- 酸化数: 結合の電子を電気陰性度の大きい原子に割り当てる ----
+  function oxNumbers(m) {
+    const ox = m.atoms.map((a) => a.charge || 0);
+    m.bonds.forEach((b) => {
+      if (b.o === "d") return;
+      const ea = EN[m.atoms[b.a].el] || 2, eb = EN[m.atoms[b.b].el] || 2;
+      if (ea < eb) { ox[b.a] += b.o; ox[b.b] -= b.o; } else if (ea > eb) { ox[b.a] -= b.o; ox[b.b] += b.o; }
+    });
+    m.atoms.forEach((a, i) => { if (a.hs) ox[i] += (EN[a.el] || 2) < EN.H ? a.hs : -a.hs; });
+    return ox;
+  }
+  // 元素ごとの原子数と酸化数の合計 { C: {n, sum}, H: {...} }
+  function oxProfile(m) {
+    const ox = oxNumbers(m), prof = {};
+    m.atoms.forEach((a, i) => { const p = (prof[a.el] = prof[a.el] || { n: 0, sum: 0 }); p.n++; p.sum += ox[i]; });
+    m.atoms.forEach((a) => { if (a.hs) { const p = (prof.H = prof.H || { n: 0, sum: 0 }); p.n += a.hs; p.sum += ((EN[a.el] || 2) < EN.H ? -1 : 1) * a.hs; } });
+    return prof;
+  }
+  // 成分(イオンなど)ごとの式と電荷。同じものはまとめる
+  function components(m) {
+    const map = new Map(), sup = "⁰¹²³⁴⁵⁶⁷⁸⁹", sub = "₀₁₂₃₄₅₆₇₈₉";
+    const comps = {};
+    m.atoms.forEach((a) => { (comps[a.comp] = comps[a.comp] || { atoms: [], charge: 0 }).atoms.push(a); comps[a.comp].charge += a.charge || 0; });
+    Object.values(comps).forEach((c) => {
+      const cnt = {}; c.atoms.forEach((a) => { cnt[a.el] = (cnt[a.el] || 0) + 1; cnt.H = (cnt.H || 0) + (a.hs || 0); });
+      let keys = Object.keys(cnt).filter((k) => cnt[k]);
+      const order = keys.includes("C") ? ["C", ...(keys.includes("H") ? ["H"] : []), ...keys.filter((k) => k !== "C" && k !== "H").sort()] : keys.sort((x, y) => (x === "H" ? -1 : y === "H" ? 1 : 0) || (EN[x] || 0) - (EN[y] || 0));
+      let f = order.map((k) => k + (cnt[k] > 1 ? String(cnt[k]).split("").map((d) => sub[+d]).join("") : "")).join("");
+      f = ({ "HO": "OH", "H₄N": "NH₄", "CHO₃": "HCO₃", "C₂H₃O₂": "CH₃COO", "H₃O": "H₃O" })[f] || f;
+      const ch = c.charge ? (Math.abs(c.charge) > 1 ? String(Math.abs(c.charge)).split("").map((d) => sup[+d]).join("") : "") + (c.charge > 0 ? "⁺" : "⁻") : "";
+      const key = f + ch;
+      if (!map.has(key)) map.set(key, { formula: f, charge: c.charge, label: f + ch, n: 0 });
+      map.get(key).n++;
+    });
+    return [...map.values()];
+  }
+
+  const api = { oxNumbers, oxProfile, components, parse, formulaOf, massOf, bondList, shapes, classify, toSVG, ionicLattice, metalLattice, EN, MASS, METALS, BOND_DATA, layout };
   if (typeof module !== "undefined") module.exports = api; else root.MolViz = api;
 })(typeof window !== "undefined" ? window : globalThis);
