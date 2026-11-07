@@ -882,14 +882,75 @@
     }, 900);
   }
 
+  // ---- ヒント: 持っている素材・設備・条件に応じて、出し方を変える ----
+  // 実験を実行するために足りないものを調べる(名前は出さず、種類だけを返す)
+  function recipeBlocks(r) {
+    const blocks = [];
+    (r.equip || []).forEach((e) => { if (!has(e)) blocks.push(DATA.EQUIP_WHY[e] || "この実験には、まだ持っていない設備が要りそうだ。"); });
+    if (r.cond) {
+      const [lo, hi] = r.cond.t;
+      if (!(lo === 1 && hi === 5)) { let any = false; for (let l = lo; l <= hi; l++) if (tempUnlocked(l)) any = true; if (!any) blocks.push("今の設備では届かない温度が必要そうだ。もっと強い熱源を作ろう。"); }
+      if (r.cond.sealed === true && !sealUnlocked()) blocks.push("空気を断てる容器が要りそうだ。");
+      if (r.cond.fine && !has("mortar")) blocks.push("固い材料を細かくすり潰す道具が要りそうだ。");
+    }
+    if (r.elec) {
+      const list = ownedSrc();
+      if (!list.length) blocks.push("電気を流す必要がありそうだ。電源になる装置を作ろう。");
+      else {
+        const best = Math.max(...list.map((s) => srcInfo(s).level)), maxV = Math.max(...list.map((s) => srcInfo(s).maxV || srcInfo(s).perCell * srcInfo(s).maxCells));
+        if (r.elec.v[0] > maxV) blocks.push("今の電源では、電圧が足りなそうだ。");
+        else if ((r.elec.cur || 1) > best) blocks.push("今の電源では、電流の強さや安定さが足りなそうだ。もっと強力な電源を考えよう。");
+      }
+      const okEl = (spec) => !spec || (spec === "inert" ? DATA.INERT.some(has) : spec.some(has));
+      if (!okEl(r.elec.an) || !okEl(r.elec.ca)) blocks.push("電極に使う素材が足りないようだ。");
+    }
+    const ym = DATA.YIELDS && DATA.YIELDS[r.key];
+    if (ym && !blocks.length) { // 収率の条件(圧力・温度)をまだ満たせない
+      const lo = r.cond ? r.cond.t[0] : 1, hi = r.cond ? r.cond.t[1] : 5;
+      const okNow = (allP) => { for (let l = lo; l <= hi; l++) { if (!allP && !tempUnlocked(l)) continue; for (const pl of DATA.PRESS_LEVELS) { if (!allP && pl.need && !has(pl.need)) continue; const y = DATA.yieldOf(r.key, TEMP_C[l], pl.p, r.cond && r.cond.sealed === true); if (y && y.y >= y.threshold) return true; } } return false; };
+      if (!okNow(false) && okNow(true)) blocks.push("今の設備では、この反応を進める圧力や温度が足りなそうだ。もっと強力な装置を考えよう。");
+    }
+    return blocks;
+  }
+  // 足りない材料の種類(名前は出さない)
+  function missingKind(id) {
+    const it = items[id];
+    if (TECHS.some((t) => t.grants.includes(id))) return "探索で手に入る素材";
+    if (it.type === "tool") return "まだ作っていない道具";
+    if (it.type === "concept") return "まだ得ていない知識";
+    if (it.type === "element") return "まだ見つけていない元素";
+    return "別の実験で作る物質";
+  }
   function hint() {
     if (S.pt < HINT_COST) return;
-    const cands = recipes.filter((r) => r.inp.every(has) && r.out.some((o) => !has(o)));
-    if (!cands.length) { say("今できる実験は出尽くした。「技術」から新しい探索を進めよう。"); renderLab(); return; }
-    const r = cands[Math.floor(Math.random() * cands.length)];
-    const hide = Math.floor(Math.random() * r.inp.length);
+    const nm = (i) => items[i].emoji + items[i].name;
+    const cands = []; // {tier, text}
+    recipes.forEach((r) => {
+      if (!r.out.some((o) => !has(o))) return; // すでに全部発見している
+      const miss = r.inp.filter((i) => !has(i));
+      if (miss.length > 1) return;
+      const blocks = recipeBlocks(r);
+      if (!miss.length && !blocks.length) { // すぐ実行できる
+        const hide = Math.floor(Math.random() * r.inp.length);
+        cands.push({ tier: 1, text: "ヒント: " + r.inp.map((i, k) => (k === hide ? "？" : nm(i))).join(" + ") + " で何かが起きる。" + (r.ratio ? "分量にも決まりがありそうだ。" : "") });
+      } else if (!miss.length) { // 材料はそろっているが、設備や条件が足りない
+        cands.push({ tier: 2, text: "ヒント: " + r.inp.map(nm).join(" + ") + " で何かが起きそうだが、今のままでは足りない。" + blocks[0] });
+      } else { // 材料が1つ足りない
+        const have_ = r.inp.filter((i) => has(i)).map(nm);
+        cands.push({ tier: 3, text: "ヒント: " + (have_.length ? have_.join(" + ") + " に、" : "") + "もう1つ、" + missingKind(miss[0]) + "を加えると、何かが起きそうだ。" + (blocks.length ? "さらに、" + blocks[0] : "") });
+      }
+    });
+    // 蒸留で成分を取り出せる混合物
+    Object.keys(DIST).forEach((mix) => {
+      if (!has(mix) || !DIST[mix].comps.some((c) => c.out && !has(c.out))) return;
+      cands.push(has("alembic") ? { tier: 1, text: "ヒント: " + nm(mix) + " は、蒸留器で温度を上げながら加熱すると、成分が順に分かれて出てくるかもしれない。" }
+        : { tier: 3, text: "ヒント: " + nm(mix) + " は、成分に分けられそうだ。液体を蒸気にして冷やす、特別な器具が要りそうだ。" });
+    });
+    if (!cands.length) { say("今は、思いつく手がかりがない。「技術」から新しい探索を進めたり、手持ちの素材を観察してみよう。"); renderLab(); return; }
+    const tier = Math.min(...cands.map((c) => c.tier)), pool = cands.filter((c) => c.tier === tier);
+    const c = pool[Math.floor(Math.random() * pool.length)];
     S.pt -= HINT_COST;
-    say("ヒント: " + r.inp.map((i, k) => (k === hide ? "？" : items[i].emoji + items[i].name)).join(" + ") + " で何かが起きる。" + (r.ratio ? "分量にも決まりがありそうだ。" : ""));
+    say(c.text);
     save(); render();
   }
 
