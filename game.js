@@ -954,7 +954,7 @@
   $("btnClear").onclick = () => { if (!busy) { slots = []; amts = []; renderLab(); } };
   $("btnHint").onclick = hint;
   $("btnCheat").onclick = () => { S.cheat = !S.cheat; save(); render(); toast("チートモード " + (S.cheat ? "ON" : "OFF")); };
-  $("btnReset").onclick = () => { if (confirm("セーブデータを消去して最初からやり直しますか?")) { const ch = S.cheat; S = fresh(); S.cheat = ch; slots = []; amts = []; save(); render(); } };
+  $("btnReset").onclick = () => { if (confirm("セーブデータをすべて消去して、最初の状態からやり直しますか?" + String.fromCharCode(10) + "(チートモードもOFFに戻ります。音や演出の設定は残ります)")) { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} location.reload(); } };
 
   window.EOD = { S: () => S, has, items, order, ptOf, grantConcept, save, render, toast, say, DATA, MolViz, showCard };
   if (window.EODX) EODX.init(window.EOD);
