@@ -40,6 +40,8 @@
   #map .node { cursor:pointer; } #map .node rect { stroke-width:1; }
   .stat { display:inline-block; min-width:120px; background:var(--panel2); border-radius:8px; padding:6px 12px; margin:0 8px 8px 0; } .stat b { display:block; font-size:20px; color:var(--accent); }
   .grid2 { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:10px; }
+  .pill.un { opacity:.42; border-style:dashed; } .pill.hv::after { content:" ✓"; color:var(--accent2); font-size:10px; }
+  .bar2 { display:flex; gap:6px; align-items:center; } .prog { height:8px; background:#2d3348; border-radius:4px; overflow:hidden; min-width:120px; } .prog i { display:block; height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); }
   .legend span { margin-right:12px; } .legend i { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px; vertical-align:-1px; }
 </style>
 </head>
@@ -49,6 +51,8 @@
   <nav id="nav"></nav>
   <span class="muted" id="counts"></span>
   <a href="index.html">← ゲームへ</a>
+  <span id="saveBar" class="muted"></span>
+  <input type="file" id="saveFile" accept="application/json,.json" hidden>
 </header>
 <main id="view"></main>
 

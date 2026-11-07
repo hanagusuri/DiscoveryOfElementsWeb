@@ -1014,6 +1014,7 @@
   $("btnRun").onclick = run;
   $("btnClear").onclick = () => { if (!busy) { slots = []; amts = []; renderLab(); } };
   $("btnHint").onclick = hint;
+  $("btnExport").onclick = () => { const blob = new Blob([JSON.stringify(S, null, 1)], { type: "application/json" }); const el = document.createElement("a"); el.href = URL.createObjectURL(blob); el.download = "eod-save.json"; el.click(); toast("セーブデータを書き出した"); };
   $("btnCheat").onclick = () => { S.cheat = !S.cheat; save(); render(); toast("チートモード " + (S.cheat ? "ON" : "OFF")); };
   $("btnReset").onclick = () => { if (confirm("セーブデータをすべて消去して、最初の状態からやり直しますか?" + String.fromCharCode(10) + "(チートモードもOFFに戻ります。音や演出の設定は残ります)")) { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} location.reload(); } };
 

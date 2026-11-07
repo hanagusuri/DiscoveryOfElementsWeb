@@ -11,7 +11,8 @@
   const IT = {}, ORDER = [];
   D.ITEM_ROWS.forEach((r, i) => { IT[r[0]] = { id: r[0], name: r[1], emoji: r[2], type: r[3], era: r[4], desc: r[5], note: r[6], sym: r[7], idx: i }; ORDER.push(r[0]); });
   const nm = (id) => (IT[id] ? IT[id].name : id);
-  const pill = (id) => IT[id] ? `<span class="pill t-${IT[id].type}" data-item="${id}" title="${esc(IT[id].desc || "")}">${IT[id].emoji} ${esc(IT[id].name)}</span>` : `<span class="pill">${esc(id)}</span>`;
+  let SAVE = null, HAVE = new Set();
+  const pill = (id) => IT[id] ? `<span class="pill t-${IT[id].type}${SAVE ? (HAVE.has(id) ? " hv" : " un") : ""}" data-item="${id}" title="${esc(IT[id].desc || "")}">${IT[id].emoji} ${esc(IT[id].name)}</span>` : `<span class="pill">${esc(id)}</span>`;
 
   // ---- 入手元(ソース)の収集: レシピ・技術・蒸留・概念の自動付与・初期素材 ----
   const SRC = {}, add = (id, s) => { (SRC[id] = SRC[id] || []).push(s); };
@@ -70,7 +71,7 @@
 
   // ---------------- 画面 ----------------
   const view = document.getElementById("view"), nav = document.getElementById("nav");
-  const TABS = [["recipes", "反応一覧"], ["items", "アイテム"], ["tree", "作り方ツリー"], ["map", "依存マップ"], ["check", "検証・統計"], ["tech", "技術"]];
+  const TABS = [["recipes", "反応一覧"], ["items", "アイテム"], ["tree", "作り方ツリー"], ["map", "依存マップ"], ["progress", "進捗(セーブ)"], ["balance", "ポイント収支"], ["check", "検証・統計"], ["tech", "技術"]];
   let tab = "recipes", sel = null;
   document.getElementById("counts").textContent = `アイテム ${ORDER.length} / レシピ ${D.RECIPE_ROWS.length} / 技術 ${D.TECHS.length}`;
   function drawNav() { nav.innerHTML = TABS.map(([k, n]) => `<button data-tab="${k}" class="${tab === k ? "on" : ""}">${n}</button>`).join(""); }
@@ -84,22 +85,22 @@
   });
 
   // ---- 反応一覧 ----
-  let sortKey = "idx", sortDir = 1, lastKey = "idx", qRec = "", fType = "", onlyCond = false;
+  let sortKey = "idx", sortDir = 1, lastKey = "idx", qRec = "", fType = "", onlyCond = false, fState = "";
   function recipesView() {
     const rows = D.RECIPE_ROWS.map((r, i) => ({ i, r, idx: i, depthv: Math.max(0, ...r[0].map((x) => depth[x] === undefined ? 99 : depth[x])), text: [...r[0], ...r[1]].map(nm).join(" ") }));
-    let list = rows.filter((x) => (!qRec || (x.text + " " + x.r[0].join(" ") + " " + x.r[1].join(" ")).toLowerCase().includes(qRec.toLowerCase())) && (!fType || x.r[1].some((o) => IT[o] && IT[o].type === fType)) && (!onlyCond || x.r[3] || x.r[7] || x.r[8] || x.r[6]));
+    let list = rows.filter((x) => (!qRec || (x.text + " " + x.r[0].join(" ") + " " + x.r[1].join(" ")).toLowerCase().includes(qRec.toLowerCase())) && (!fType || x.r[1].some((o) => IT[o] && IT[o].type === fType)) && (!onlyCond || x.r[3] || x.r[7] || x.r[8] || x.r[6]) && (!fState || recStatus(x.r) === fState));
     list.sort((a, b) => (sortKey === "depth" ? a.depthv - b.depthv : a.idx - b.idx) * sortDir);
-    let h = `<div class="bar"><input type="search" id="q" placeholder="材料・生成物で検索" value="${esc(qRec)}"><select id="ft"><option value="">生成物の種類:すべて</option>${Object.entries(TYPE).map(([k, v]) => `<option value="${k}" ${fType === k ? "selected" : ""}>${v}</option>`).join("")}</select><label><input type="checkbox" id="oc" ${onlyCond ? "checked" : ""}> 条件・設備つきのみ</label><span class="muted">${list.length} / ${rows.length} 件</span><button data-export="recipes-tsv">TSV出力</button><button data-export="recipes-json">JSON出力</button></div>`;
-    h += `<table><tr><th data-sort="idx">#</th><th>材料</th><th>→ 生成物</th><th>条件・設備</th><th data-sort="depth">深さ</th><th>文章</th></tr>` + list.map((x) => `<tr><td class="muted">${x.i + 1}</td><td>${x.r[0].map(pill).join("＋")}</td><td>${x.r[1].map(pill).join(" ")}</td><td>${recipeInfo(x.r)}</td><td><span class="depth">${x.depthv === 99 ? "?" : x.depthv}</span></td><td class="eq">${esc(x.r[2] || "")}${x.r[5] ? `<br>⚠ ${esc(x.r[5])}` : ""}</td></tr>`).join("") + `</table>`;
+    let h = `<div class="bar"><input type="search" id="q" placeholder="材料・生成物で検索" value="${esc(qRec)}"><select id="ft"><option value="">生成物の種類:すべて</option>${Object.entries(TYPE).map(([k, v]) => `<option value="${k}" ${fType === k ? "selected" : ""}>${v}</option>`).join("")}</select><label><input type="checkbox" id="oc" ${onlyCond ? "checked" : ""}> 条件・設備つきのみ</label>${SAVE ? `<select id="fs"><option value="">進行状況:すべて</option><option value="done" ${fState === "done" ? "selected" : ""}>発見済み</option><option value="ready" ${fState === "ready" ? "selected" : ""}>実行可(未発見)</option><option value="lack" ${fState === "lack" ? "selected" : ""}>材料不足</option></select>` : ""}<span class="muted">${list.length} / ${rows.length} 件</span><button data-export="recipes-tsv">TSV出力</button><button data-export="recipes-json">JSON出力</button></div>`;
+    h += `<table><tr><th data-sort="idx">#</th><th>材料</th><th>→ 生成物</th><th>条件・設備</th><th data-sort="depth">深さ</th><th>文章</th></tr>` + list.map((x) => `<tr><td class="muted">${x.i + 1}</td><td>${x.r[0].map(pill).join("＋")}</td><td>${x.r[1].map(pill).join(" ")}</td><td>${statChip(recStatus(x.r))}${recipeInfo(x.r)}</td><td><span class="depth">${x.depthv === 99 ? "?" : x.depthv}</span></td><td class="eq">${esc(x.r[2] || "")}${x.r[5] ? `<br>⚠ ${esc(x.r[5])}` : ""}</td></tr>`).join("") + `</table>`;
     return h;
   }
 
   // ---- アイテム ----
-  let qItem = "", fiType = "", fiEra = "";
+  let qItem = "", fiType = "", fiEra = "", fiState = "";
   function itemsView() {
-    let list = ORDER.map((id) => IT[id]).filter((x) => (!qItem || (x.name + x.id).toLowerCase().includes(qItem.toLowerCase())) && (!fiType || x.type === fiType) && (!fiEra || x.era === +fiEra));
+    let list = ORDER.map((id) => IT[id]).filter((x) => (!qItem || (x.name + x.id).toLowerCase().includes(qItem.toLowerCase())) && (!fiType || x.type === fiType) && (!fiEra || x.era === +fiEra) && (!fiState || (fiState === "have") === HAVE.has(x.id)));
     list.sort((a, b) => (sortKey === "depth" ? (depth[a.id] === undefined ? 999 : depth[a.id]) - (depth[b.id] === undefined ? 999 : depth[b.id]) : sortKey === "era" ? a.era - b.era : a.idx - b.idx) * sortDir);
-    let h = `<div class="bar"><input type="search" id="qi" placeholder="名前・IDで検索" value="${esc(qItem)}"><select id="fit"><option value="">種類:すべて</option>${Object.entries(TYPE).map(([k, v]) => `<option value="${k}" ${fiType === k ? "selected" : ""}>${v}</option>`).join("")}</select><select id="fie"><option value="">時代:すべて</option>${[1, 2, 3, 4].map((e) => `<option value="${e}" ${fiEra == e ? "selected" : ""}>第${e}期 ${ERA[e]}</option>`).join("")}</select><span class="muted">${list.length} 件</span><button data-export="items-tsv">TSV出力</button></div>`;
+    let h = `<div class="bar"><input type="search" id="qi" placeholder="名前・IDで検索" value="${esc(qItem)}"><select id="fit"><option value="">種類:すべて</option>${Object.entries(TYPE).map(([k, v]) => `<option value="${k}" ${fiType === k ? "selected" : ""}>${v}</option>`).join("")}</select><select id="fie"><option value="">時代:すべて</option>${[1, 2, 3, 4].map((e) => `<option value="${e}" ${fiEra == e ? "selected" : ""}>第${e}期 ${ERA[e]}</option>`).join("")}</select>${SAVE ? `<select id="fis"><option value="">進行状況:すべて</option><option value="have" ${fiState === "have" ? "selected" : ""}>発見済み</option><option value="no" ${fiState === "no" ? "selected" : ""}>未発見</option></select>` : ""}<span class="muted">${list.length} 件</span><button data-export="items-tsv">TSV出力</button></div>`;
     h += `<table><tr><th data-sort="idx">アイテム</th><th>ID</th><th>種類</th><th data-sort="era">時代</th><th data-sort="depth">深さ</th><th>入手元</th><th>使い道</th></tr>` + list.map((x) => {
       const s = SRC[x.id] || [], kinds = uniq(s.map((q) => ({ start: "初期", recipe: "実験", tech: "技術", distill: "蒸留", insight: "自動", family: "自動", auto: "自動" })[q.kind])).join("・") || "—";
       const used = (USED[x.id] || []).length;
@@ -177,12 +178,12 @@
     }
     let nodes = cols.map((c, x) => `<text x="${20 + x * CW}" y="24" style="fill:#e8a33d;font-weight:700">深さ ${x}</text>` + c.map((id) => {
       const p = pos[id], st = id === sel ? "#fff" : anc.has(id) ? "#6aa6ff" : desc.has(id) ? "#ff9a5a" : COL[IT[id].type], dim = sel && id !== sel && !anc.has(id) && !desc.has(id);
-      return `<g class="node" data-item="${id}" opacity="${dim ? 0.28 : 1}"><rect x="${p.x}" y="${p.y}" width="150" height="17" rx="4" fill="${COL[IT[id].type]}33" stroke="${st}" stroke-width="${id === sel ? 2 : 1}"/><text x="${p.x + 5}" y="${p.y + 12.5}">${IT[id].emoji}${esc(IT[id].name).slice(0, 14)}</text></g>`;
+      return `<g class="node" data-item="${id}" opacity="${dim ? 0.28 : (SAVE && !HAVE.has(id) ? 0.55 : 1)}"><rect x="${p.x}" y="${p.y}" width="150" height="17" rx="4" fill="${SAVE && !HAVE.has(id) ? "none" : COL[IT[id].type] + "55"}" stroke="${st}" stroke-width="${id === sel ? 2 : 1}"${SAVE && !HAVE.has(id) ? ' stroke-dasharray="3 2"' : ""}/><text x="${p.x + 5}" y="${p.y + 12.5}">${IT[id].emoji}${esc(IT[id].name).slice(0, 14)}</text></g>`;
     }).join("")).join("");
     const unreach = ORDER.filter((id) => depth[id] === undefined);
     mapState.W = W; mapState.H = H; mapState.pos = pos;
     const vb = mapState.vb || [0, 0, Math.min(W, 1400), Math.min(H, 700)];
-    let h = `<div class="bar legend">${Object.entries(TYPE).map(([k, v]) => `<span><i style="background:${COL[k]}"></i>${v}</span>`).join("")}<span><i style="background:#6aa6ff"></i>選択の材料(祖先)</span><span><i style="background:#ff9a5a"></i>選択から作れるもの(子孫)</span><button data-map="fit">全体表示</button><button data-map="home">左上へ</button>${sel ? '<button data-map="goto">選択へ移動</button>' : ""}<span class="muted">ドラッグで移動・ホイールで拡大縮小・ノードをクリックで選択${sel ? " / 選択中: " + esc(nm(sel)) + " <button data-tab=\"tree\">ツリーで開く</button>" : ""}</span></div>`;
+    let h = `<div class="bar legend">${Object.entries(TYPE).map(([k, v]) => `<span><i style="background:${COL[k]}"></i>${v}</span>`).join("")}<span><i style="background:#6aa6ff"></i>選択の材料(祖先)</span>${SAVE ? "<span class=\"muted\">(点線=未発見)</span>" : ""}<span><i style="background:#ff9a5a"></i>選択から作れるもの(子孫)</span><button data-map="fit">全体表示</button><button data-map="home">左上へ</button>${sel ? '<button data-map="goto">選択へ移動</button>' : ""}<span class="muted">ドラッグで移動・ホイールで拡大縮小・ノードをクリックで選択${sel ? " / 選択中: " + esc(nm(sel)) + " <button data-tab=\"tree\">ツリーで開く</button>" : ""}</span></div>`;
     h += `<svg id="map" viewBox="${vb.join(" ")}" preserveAspectRatio="xMinYMin meet">${edges}${nodes}</svg>`;
     if (unreach.length) h += `<p class="chip warn">深さ未計算(データ上の入手元なし。観察や実験の途中で自動的に得る概念など): ${unreach.map(nm).join("、")}</p>`;
     return h;
@@ -225,6 +226,108 @@
     return `<table><tr><th>技術</th><th>時代</th><th>コスト</th><th>前提(発見が必要)</th><th>入手できるもの</th><th>説明</th></tr>` + D.TECHS.map((t) => `<tr><td><b>${esc(t.name)}</b><br><small>${t.id}</small></td><td>第${t.era}期</td><td>${t.cost}pt</td><td>${t.req.map(pill).join("")}${t.reqEl ? `<span class="chip">元素${t.reqEl}個</span>` : ""}</td><td>${t.grants.map(pill).join("")}</td><td class="eq">${esc(t.desc || "")}</td></tr>`).join("") + `</table>`;
   }
 
+  // ---- セーブデータ(プレイ状況)の読み込み ----
+  function loadSave(obj, from) {
+    if (!obj || !Array.isArray(obj.have)) { alert("セーブデータの形式が違います(have が必要)"); return; }
+    SAVE = obj; HAVE = new Set(obj.have); saveFrom = from; drawSaveBar(); render();
+  }
+  let saveFrom = "";
+  function drawSaveBar() {
+    const el = document.getElementById("saveBar"); if (!el) return;
+    if (!SAVE) { el.innerHTML = `<span class="bar2"><button data-save="ls">ブラウザ内のセーブを読込</button><button data-save="file">ファイルから</button><button data-save="paste">JSON貼り付け</button></span>`; return; }
+    const total = ORDER.length, n = ORDER.filter((id) => HAVE.has(id)).length;
+    el.innerHTML = `<span class="bar2"><span class="chip ok">セーブ読込済(${esc(saveFrom)})</span> 発見 <b>${n}</b>/${total} ・知識 <b>${SAVE.pt || 0}</b>pt${SAVE.cheat ? ' <span class="chip warn">チートON</span>' : ""} <button data-save="clear">解除</button></span>`;
+  }
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-save]"); if (!b) return;
+    const k = b.dataset.save;
+    if (k === "clear") { SAVE = null; HAVE = new Set(); drawSaveBar(); render(); }
+    else if (k === "file") document.getElementById("saveFile").click();
+    else if (k === "paste") { const t = prompt("ゲームの「セーブデータを書き出す」で得たJSONを貼り付けてください"); if (t) { try { loadSave(JSON.parse(t), "貼り付け"); } catch (x) { alert("JSONを読めません: " + x.message); } } }
+    else if (k === "ls") { try { const raw = localStorage.getItem("eod_save_v1"); if (!raw) return alert("このブラウザには、ゲームのセーブがありません。ゲームと同じ場所(同じオリジン)で開くか、「ファイルから」を使ってください。"); loadSave(JSON.parse(raw), "ブラウザ内"); } catch (x) { alert("読み込めません: " + x.message); } }
+  });
+  document.getElementById("saveFile").addEventListener("change", (e) => {
+    const f = e.target.files[0]; if (!f) return; const r = new FileReader();
+    r.onload = () => { try { loadSave(JSON.parse(r.result), f.name); } catch (x) { alert("JSONを読めません: " + x.message); } e.target.value = ""; };
+    r.readAsText(f);
+  });
+  function recStatus(r) {
+    if (!SAVE) return "";
+    if (r[1].every((o) => HAVE.has(o))) return "done";
+    return [...r[0], ...(r[7] || [])].every((x) => HAVE.has(x)) ? "ready" : "lack";
+  }
+  const statChip = (st) => ({ done: '<span class="chip ok">発見済み</span>', ready: '<span class="chip warn">実行可(未発見)</span>', lack: '<span class="chip">材料不足</span>', "": "" })[st];
+
+  // ---- 進捗(セーブ) ----
+  function bar(n, total) { return `<div class="prog"><i style="width:${total ? (n / total * 100).toFixed(1) : 0}%"></i></div>`; }
+  function progressView() {
+    if (!SAVE) return `<div class="card"><h3 style="margin:0 0 6px">セーブデータを読み込んでください</h3><p class="muted">右上の「ブラウザ内のセーブを読込」(ゲームと同じ場所で開いているとき)、または、ゲームの「図鑑」タブの「セーブデータを書き出す」で得た JSON を、「ファイルから」「JSON貼り付け」で読み込みます。読み込むと、各表やマップで、未発見のものが点線・薄い色になります。</p></div>`;
+    const total = ORDER.length, have = ORDER.filter((id) => HAVE.has(id));
+    let h = `<div>` + [["発見", have.length + " / " + total], ["技術", (SAVE.techs || []).length + " / " + D.TECHS.length], ["知識ポイント", SAVE.pt || 0], ["事故の回数", Object.values(SAVE.acc || {}).reduce((a, b) => a + b, 0)], ["反応式の記録", Object.keys(SAVE.eqSeen || {}).length], ["自作電池", Object.keys(SAVE.cellsBuilt || {}).length]].map(([k, v]) => `<div class="stat">${k}<b>${v}</b></div>`).join("") + `</div>`;
+    h += `<div class="grid2"><div class="card"><h3 style="margin:0 0 6px">種類別の発見率</h3>${Object.entries(TYPE).map(([k, v]) => { const all = ORDER.filter((i) => IT[i].type === k), n = all.filter((i) => HAVE.has(i)).length; return `<div class="bar2" style="margin:4px 0"><span style="width:60px">${v}</span>${bar(n, all.length)}<span>${n}/${all.length}</span></div>`; }).join("")}</div>`;
+    h += `<div class="card"><h3 style="margin:0 0 6px">時代別の発見率</h3>${[1, 2, 3, 4].map((e) => { const all = ORDER.filter((i) => IT[i].era === e), n = all.filter((i) => HAVE.has(i)).length; return `<div class="bar2" style="margin:4px 0"><span style="width:80px">${ERA[e]}</span>${bar(n, all.length)}<span>${n}/${all.length}</span></div>`; }).join("")}</div></div>`;
+    // 次に狙える
+    const ready = D.RECIPE_ROWS.map((r, i) => ({ r, i })).filter((x) => recStatus(x.r) === "ready").sort((a, b) => Math.max(...a.r[0].map((q) => depth[q] || 0)) - Math.max(...b.r[0].map((q) => depth[q] || 0)));
+    h += `<div class="card"><h3 style="margin:0 0 6px">今すぐ試せる未発見の実験 <span class="chip warn">${ready.length}</span></h3><small>材料と設備はそろっていて、まだ全部は発見していない実験(温度・圧力などの条件は未確認)</small>${ready.slice(0, 40).map((x) => `<div>${x.r[0].map(pill).join("＋")} → ${x.r[1].map(pill).join(" ")} ${recipeInfo(x.r)}</div>`).join("") || "<div class='muted'>なし</div>"}${ready.length > 40 ? `<div class="muted">…ほか ${ready.length - 40} 件</div>` : ""}</div>`;
+    // 買える技術
+    const bought = new Set(SAVE.techs || []);
+    const els = have.filter((i) => IT[i].type === "element").length;
+    const techs = D.TECHS.filter((t) => !bought.has(t.id));
+    h += `<div class="card"><h3 style="margin:0 0 6px">未研究の技術 <span class="chip">${techs.length}</span></h3><table><tr><th>技術</th><th>コスト</th><th>前提</th><th>状態</th></tr>${techs.map((t) => { const okReq = t.req.every((i) => HAVE.has(i)) && (!t.reqEl || els >= t.reqEl), afford = (SAVE.pt || 0) >= t.cost; return `<tr><td>${esc(t.name)}</td><td>${t.cost}pt</td><td>${t.req.map(pill).join("")}${t.reqEl ? `<span class="chip">元素${t.reqEl}個(${els})</span>` : ""}</td><td>${okReq ? (afford ? '<span class="chip ok">今すぐ研究できる</span>' : '<span class="chip warn">前提OK・ポイント不足(' + (t.cost - (SAVE.pt || 0)) + ')</span>') : '<span class="chip">前提未達</span>'}</td></tr>`; }).join("")}</table></div>`;
+    // 事故・収率
+    const acc = Object.entries(SAVE.acc || {}), by = Object.entries(SAVE.bestY || {});
+    if (acc.length || by.length) h += `<div class="grid2">${acc.length ? `<div class="card"><h3 style="margin:0 0 6px">事故の種類別</h3>${acc.map(([k, v]) => `<span class="chip warn">${k} ×${v}</span>`).join("")}</div>` : ""}${by.length ? `<div class="card"><h3 style="margin:0 0 6px">収率の自己ベスト</h3>${by.map(([k, v]) => `<div>${k.split("+").map(nm).join("+")} <span class="chip ok">${(v * 100).toFixed(0)}%</span></div>`).join("")}</div>` : ""}</div>`;
+    return h;
+  }
+
+  // ---- ポイント収支 ----
+  const ptOf = (id) => (D.PT_BY_TYPE[IT[id].type] || 0);
+  function simulate() {
+    const have = new Set(D.START_ITEMS), bought = new Set(); let pt = 0, income = 0, spent = 0; const steps = [];
+    const nonTech = []; Object.keys(SRC).forEach((id) => SRC[id].forEach((s) => { if (s.kind !== "tech" && s.kind !== "start") nonTech.push({ id, s }); }));
+    const elCount = () => [...have].filter((i) => IT[i] && IT[i].type === "element").length;
+    for (let g = 0; g < 600; g++) {
+      let progress = false;
+      for (const { id, s } of nonTech) { if (have.has(id) || !s.inputs.every((i) => have.has(i))) continue; have.add(id); const p = id === "electricity" ? 0 : ptOf(id); pt += p; income += p; progress = true; }
+      const avail = D.TECHS.filter((t) => !bought.has(t.id) && t.req.every((i) => have.has(i)) && (!t.reqEl || elCount() >= t.reqEl) && pt >= t.cost).sort((a, b) => a.cost - b.cost);
+      if (avail.length) { const t = avail[0]; steps.push({ t, before: pt, after: pt - t.cost, income, spent: spent + t.cost, have: have.size }); pt -= t.cost; spent += t.cost; bought.add(t.id); t.grants.forEach((x) => have.add(x)); progress = true; }
+      if (!progress) break;
+    }
+    return { steps, pt, income, spent, have, stuck: D.TECHS.filter((t) => !bought.has(t.id)) };
+  }
+  function balanceView() {
+    const PT = D.PT_BY_TYPE, special = new Set(D.SPECIAL_ITEMS || []);
+    const earn = ORDER.filter((id) => !D.START_ITEMS.includes(id) && id !== "electricity" && (SRC[id] || []).some((s) => s.kind !== "tech" && s.kind !== "start"));
+    const autoOnly = ORDER.filter((id) => !(SRC[id] || []).length && special.has(id));
+    const techOnly = ORDER.filter((id) => (SRC[id] || []).length && (SRC[id] || []).every((s) => s.kind === "tech"));
+    const base = earn.reduce((a, id) => a + ptOf(id), 0), auto = autoOnly.reduce((a, id) => a + ptOf(id), 0);
+    const bonus = [["収率の自己ベスト(10%/30%/60%)", Object.keys(D.YIELDS || {}).length * 6], ["繰り返し実験の途中経過(1回+1)", D.RECIPE_ROWS.reduce((a, r) => a + (r[6] ? r[6] - 1 : 0), 0)], ["反応式づくり(3+2+2)", (D.EQUATIONS || []).length * 7], ["計算ドリル(最大20回)", 20], ["滴定(最大8回×4)", 32], ["状態変化の観察(物質×種類, 目安)", 40]];
+    const bonusTotal = bonus.reduce((a, b) => a + b[1], 0), cost = D.TECHS.reduce((a, t) => a + t.cost, 0);
+    const sim = simulate();
+    let h = `<div>` + [["アイテム収入", base], ["観察で得る概念", auto], ["ボーナス上限(目安)", bonusTotal], ["収入の合計", base + auto + bonusTotal], ["技術コスト合計", cost], ["余剰", base + auto + bonusTotal - cost], ["ヒント換算", Math.floor((base + auto + bonusTotal - cost) / 3) + "回"]].map(([k, v]) => `<div class="stat">${k}<b>${v}</b></div>`).join("") + `</div>`;
+    h += `<p class="muted">※ 収入は「新しい物質・概念を初めて発見したときの知識ポイント(素材2・化合物/道具3・元素4・概念6)」の理論上の合計です。技術で直接手に入る素材には、ポイントが入りません(${techOnly.length}個)。事故による損失や、ヒントの消費は含みません。</p>`;
+    h += `<div class="grid2"><div class="card"><h3 style="margin:0 0 6px">時代別の収支</h3><table><tr><th>時代</th><th>収入(アイテム)</th><th>技術コスト</th><th>差し引き</th></tr>${[1, 2, 3, 4].map((e) => { const inc = earn.concat(autoOnly).filter((id) => IT[id].era === e).reduce((a, id) => a + ptOf(id), 0), c = D.TECHS.filter((t) => t.era === e).reduce((a, t) => a + t.cost, 0); return `<tr><td>${ERA[e]}</td><td>${inc}</td><td>${c}</td><td>${inc - c >= 0 ? "+" : ""}${inc - c}</td></tr>`; }).join("")}</table></div>`;
+    h += `<div class="card"><h3 style="margin:0 0 6px">種類別の収入</h3><table><tr><th>種類</th><th>個数</th><th>1個</th><th>合計</th></tr>${Object.entries(TYPE).map(([k, v]) => { const n = earn.concat(autoOnly).filter((id) => IT[id].type === k).length; return `<tr><td>${v}</td><td>${n}</td><td>${PT[k] || 0}</td><td>${n * (PT[k] || 0)}</td></tr>`; }).join("")}</table></div>`;
+    h += `<div class="card"><h3 style="margin:0 0 6px">ボーナス(上限の目安)</h3><table>${bonus.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join("")}</table></div></div>`;
+    // 進行シミュレーション
+    h += `<div class="card"><h3 style="margin:0 0 6px">進行シミュレーション(最も安い技術から順に研究)</h3><small>すべての実験・蒸留・自動付与を、可能になるたびに実行し、買える中で最安の技術を研究する、という進め方での、ポイントの推移。残高が小さい箇所が、ボトルネックです。</small>`;
+    const steps = sim.steps, maxV = Math.max(1, ...steps.map((s) => Math.max(s.income, s.spent)));
+    const W = 760, Hh = 170, L = 44, B = 22, sx = (i) => L + (steps.length > 1 ? i / (steps.length - 1) : 0) * (W - L - 10), sy = (v) => 8 + (Hh - B - 8) * (1 - v / maxV);
+    const line = (k, c) => `<polyline fill="none" stroke="${c}" stroke-width="1.8" points="${steps.map((s, i) => sx(i).toFixed(1) + "," + sy(s[k]).toFixed(1)).join(" ")}"/>`;
+    h += `<svg viewBox="0 0 ${W} ${Hh}" style="width:100%;max-width:${W}px;background:#0e1016;border-radius:8px;margin:8px 0"><g font-size="10" fill="#8d93a8">${[0, 0.5, 1].map((q) => `<text x="4" y="${sy(maxV * q) + 3}">${Math.round(maxV * q)}</text><line x1="${L}" x2="${W - 10}" y1="${sy(maxV * q)}" y2="${sy(maxV * q)}" stroke="#2d3348"/>`).join("")}<text x="${L}" y="${Hh - 6}">技術の研究順 →</text></g>${line("income", "#6ec1b0")}${line("spent", "#e8a33d")}<g font-size="10"><text x="${W - 150}" y="14" fill="#6ec1b0">━ 累計収入</text><text x="${W - 80}" y="14" fill="#e8a33d">━ 累計支出</text></g></svg>`;
+    const minAfter = Math.min(...steps.map((s) => s.after));
+    h += `<div class="bar"><span class="chip ${sim.stuck.length ? "warn" : "ok"}">研究できなかった技術 ${sim.stuck.length}</span><span class="chip">最小残高 ${minAfter}pt</span><span class="chip">最終残高 ${sim.pt}pt</span><span class="chip">到達アイテム ${[...sim.have].filter((i) => IT[i]).length} / ${ORDER.length}</span></div>`;
+    h += `<table><tr><th>#</th><th>技術</th><th>コスト</th><th>購入前</th><th>購入後</th><th>累計収入</th><th>累計支出</th><th>入手済み</th></tr>${steps.map((s, i) => `<tr><td>${i + 1}</td><td>${esc(s.t.name)}</td><td>${s.t.cost}</td><td>${s.before}</td><td>${s.after < 3 ? `<span class="chip warn">${s.after}</span>` : s.after}</td><td>${s.income}</td><td>${s.spent}</td><td>${s.have}</td></tr>`).join("")}</table>`;
+    if (sim.stuck.length) h += `<p class="chip warn">研究できなかった: ${sim.stuck.map((t) => esc(t.name)).join("、")}</p>`;
+    h += `</div>`;
+    if (SAVE) {
+      const spentNow = (SAVE.techs || []).reduce((a, id) => a + ((D.TECHS.find((t) => t.id === id) || { cost: 0 }).cost), 0), mine = (SAVE.pt || 0) + spentNow;
+      const modelNow = ORDER.filter((id) => HAVE.has(id) && !D.START_ITEMS.includes(id) && (SRC[id] || []).some((s) => s.kind !== "tech" && s.kind !== "start")).reduce((a, id) => a + ptOf(id), 0);
+      h += `<div class="card"><h3 style="margin:0 0 6px">いまのセーブとの比較</h3>現在 ${SAVE.pt || 0}pt + 研究済み技術のコスト ${spentNow}pt = <b>推定獲得 ${mine}pt</b>。発見済みアイテムからの理論収入は ${modelNow}pt。<br><small>差(${mine - modelNow}pt)は、ボーナス・ヒント・事故の損失などによるものです。</small></div>`;
+    }
+    return h;
+  }
+
   // ---- 出力 ----
   function download(name, text, type) { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type: type || "text/plain" })); a.download = name; a.click(); }
   function exportData(kind) {
@@ -235,10 +338,10 @@
 
   // ---- 描画 ----
   function render() {
-    view.innerHTML = { recipes: recipesView, items: itemsView, tree: treeView, map: mapView, check: checkView, tech: techView }[tab]();
+    view.innerHTML = { recipes: recipesView, items: itemsView, tree: treeView, map: mapView, progress: progressView, balance: balanceView, check: checkView, tech: techView }[tab]();
     const on = (id, ev, fn) => { const e = document.getElementById(id); if (e) e.addEventListener(ev, fn); };
     on("q", "input", (e) => { qRec = e.target.value; const pos = e.target.selectionStart; render(); const q = document.getElementById("q"); q.focus(); q.setSelectionRange(pos, pos); });
-    on("ft", "change", (e) => { fType = e.target.value; render(); }); on("oc", "change", (e) => { onlyCond = e.target.checked; render(); });
+    on("ft", "change", (e) => { fType = e.target.value; render(); }); on("fs", "change", (e) => { fState = e.target.value; render(); }); on("fis", "change", (e) => { fiState = e.target.value; render(); }); on("oc", "change", (e) => { onlyCond = e.target.checked; render(); });
     on("qi", "input", (e) => { qItem = e.target.value; const pos = e.target.selectionStart; render(); const q = document.getElementById("qi"); q.focus(); q.setSelectionRange(pos, pos); });
     on("fit", "change", (e) => { fiType = e.target.value; render(); }); on("fie", "change", (e) => { fiEra = e.target.value; render(); });
     on("treeq", "change", (e) => { const hit = ORDER.find((id) => IT[id].name === e.target.value || id === e.target.value); if (hit) go("tree", hit); });
@@ -246,5 +349,6 @@
   }
   const hash = location.hash.replace("#", "").split(":");
   if (TABS.some((t) => t[0] === hash[0])) { tab = hash[0]; if (hash[1] && IT[hash[1]]) sel = hash[1]; }
-  drawNav(); render();
+  drawNav(); drawSaveBar();
+  try { const raw = localStorage.getItem("eod_save_v1"); if (raw) { const o = JSON.parse(raw); if (o && Array.isArray(o.have)) loadSave(o, "ブラウザ内(自動)"); else render(); } else render(); } catch (e) { render(); }
 })();

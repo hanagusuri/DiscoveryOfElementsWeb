@@ -269,3 +269,5 @@ body.shake main, body.shake header#top { animation: shk .5s; }
 .labtop .actions button { padding: 9px 12px; }
 .labtop .log { min-height: 0; max-height: 50px; padding: 6px 10px; font-size: 12.5px; border-radius: 10px; }
 .labtop .log p { margin: 2px 0; }
+
+.adminlink { display: block; margin-top: 16px; padding: 10px 14px; text-align: center; border: 1px dashed var(--line); border-radius: 10px; color: var(--accent2); text-decoration: none; font-size: 13px; }
