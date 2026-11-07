@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#12141c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Elements of Discovery</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header id="top">
+  <div class="brand">
+    <div class="era" id="eraName"></div>
+    <div class="era-sub" id="eraSub"></div>
+  </div>
+  <div class="pt"><span>知識</span><b id="pt">0</b></div>
+  <div class="bar"><i id="eraBar"></i></div>
+</header>
+
+<main>
+  <section id="tab-lab" class="panel">
+    <div class="bench" id="bench">
+      <div class="slots" id="slots"></div>
+      <div class="flask" id="flask" aria-hidden="true">⚗️</div>
+    </div>
+    <div class="cond" id="cond"></div>
+    <div class="cond proc" id="proc"></div>
+    <div class="actions">
+      <button id="btnRun" class="primary">実験する</button>
+      <button id="btnClear">クリア</button>
+      <button id="btnHint">ヒント <small>-3</small></button>
+    </div>
+    <div class="log" id="log"></div>
+    <div class="chips" id="chips"></div>
+    <div class="grid" id="inv"></div>
+  </section>
+
+  <section id="tab-tech" class="panel" hidden>
+    <p class="lead">発見した知識を使って、新しい探索や道具を開放しよう。</p>
+    <div id="techList"></div>
+  </section>
+
+  <section id="tab-table" class="panel" hidden>
+    <div class="lead" id="tableLead"></div>
+    <div id="tableWrap"></div>
+  </section>
+
+  <section id="tab-mol" class="panel" hidden>
+    <div id="molBody"></div>
+  </section>
+
+  <section id="tab-codex" class="panel" hidden>
+    <div class="lead" id="codexCount"></div>
+    <div id="codex"></div>
+    <button id="btnCheat" class="cheat"></button>
+    <button id="btnReset" class="danger">セーブデータを消去</button>
+  </section>
+</main>
+
+<nav id="tabs">
+  <button data-tab="lab" class="on">🧪<span>実験室</span></button>
+  <button data-tab="tech" >🏛️<span>技術</span></button>
+  <button data-tab="table">⚛️<span>周期表</span></button>
+  <button data-tab="mol">🧬<span>分子</span></button>
+  <button data-tab="codex">📖<span>図鑑</span></button>
+</nav>
+
+<div id="modal" class="modal" hidden>
+  <div class="card" id="card"></div>
+</div>
+<div id="toast" class="toast" hidden></div>
+
+<script src="data.js"></script>
+<script src="elements.js"></script>
+<script src="elements_extra.js"></script>
+<script src="elements_compounds.js"></script>
+<script src="elements_safety.js"></script>
+<script src="elements_phases.js"></script>
+<script src="elements_distill.js"></script>
+<script src="elements_electric.js"></script>
+<script src="elements_cells.js"></script>
+<script src="molviz.js"></script>
+<script src="elements_organic.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
