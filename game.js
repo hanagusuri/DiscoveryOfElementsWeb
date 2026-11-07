@@ -32,7 +32,8 @@
   const save = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {} };
   const has = (id) => S.have.includes(id);
   const $ = (id) => document.getElementById(id);
-  const say = (t) => { S.log.unshift(t); S.log = S.log.slice(0, 30); };
+  const say = (t) => {
+    if (window.FX) FX.onSay(t); S.log.unshift(t); S.log = S.log.slice(0, 30); };
   const elementCount = () => S.have.filter((i) => items[i].type === "element").length;
 
   // ---- 実験条件 ----
@@ -552,6 +553,7 @@
   }
 
   function accident(kind, sev, names) {
+    if (window.FX) FX.accident(sev, kind);
     const H = HZ[kind];
     const lost = sev === 1 ? 2 : sev === 2 ? 5 : 10;
     const before = S.pt;
@@ -634,6 +636,7 @@
   }
 
   function renderLab() {
+    if (window.FX) FX.bench({ fire: slots.includes("fire"), elec: slots.includes("electricity"), cold: !slots.includes("fire") && cooling > 0 });
     renderCond();
     renderProc();
     $("slots").innerHTML = Array.from({ length: MAX_SLOTS }, (_, i) => {
@@ -766,7 +769,8 @@
   // ---- 操作 ----
   function addSlot(id) { if (slots.length < MAX_SLOTS && !busy) { slots.push(id); amts.push(1); if (!S.seen.includes(id)) { S.seen.push(id); save(); } renderLab(); } }
 
-  function toast(msg) { const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => (t.hidden = true), 2200); }
+  function toast(msg) {
+    if (window.FX) FX.onToast(msg); const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => (t.hidden = true), 2200); }
 
   function showCard(html, onClose) {
     $("card").innerHTML = html + `<button class="primary" id="cardOk">OK</button>`;
@@ -865,6 +869,7 @@
       }
       S.pt += gain;
       say(`発見: ${fresh_.map((o) => items[o].name).join("、")} (+${gain}pt)${eqNote}`);
+      if (window.FX) FX.discover(fresh_.map((o) => items[o].type), gain);
       const newEra = checkEra();
       save(); slots = []; amts = []; render();
       const body = fresh_.length === 1
