@@ -596,6 +596,7 @@
     const total = order.length;
     $("eraBar").style.width = (S.have.length / total * 100).toFixed(1) + "%";
     renderLab(); renderTech(); renderCodex(); renderTable(); renderMol();
+    if (window.IND) IND.render();
   }
 
   function renderCond() {
@@ -673,6 +674,7 @@
       `<div class="eqline"><div class="eqname">${name}</div><div class="eqchain">${base ? `<span class="eq on base">${base}</span>` : ""}${chain.map(cell).join('<i>›</i>')}</div></div>`).join("");
   }
 
+  const st_ok = (t) => !S.techs.includes(t.id) && (S.cheat || techState(t) === "open");
   function renderTech() {
     const open = TECHS.filter((t) => S.cheat || techState(t) !== "locked");
     const hidden = TECHS.length - open.length;
@@ -681,7 +683,7 @@
       const free = S.cheat;
       const gr = t.grants.map((g) => items[g].emoji + items[g].name).join("・");
       return `<div class="tech ${st}"><h3><span>${t.name}</span><span>${free ? "無料" : t.cost + "pt"}</span></h3><p>${t.desc}</p><div class="gr">入手: ${gr}</div>` +
-        (st === "done" ? `<button disabled>完了</button>` : `<button class="${free || S.pt >= t.cost ? "primary" : ""}" data-tech="${t.id}" ${!free && S.pt < t.cost ? "disabled" : ""}>研究する${free && techState(t) === "locked" ? "(前提を無視)" : ""}</button>`) + `</div>`;
+        (st === "done" ? `<button disabled>完了</button>` : (window.IND && st_ok(t) ? `<button data-techg="${t.id}" class="${IND.canPay(IND.techGold(t)) ? "primary" : ""}">資金で調達(${IND.easy() ? "無料" : IND.techGold(t) + "G"}・約${Math.max(7, t.cost * 3)}日)</button> ` : "") + `<button class="${free || S.pt >= t.cost ? "primary" : ""}" data-tech="${t.id}" ${!free && S.pt < t.cost ? "disabled" : ""}>研究する${free && techState(t) === "locked" ? "(前提を無視)" : ""}</button>`) + `</div>`;
     });
     $("techList").innerHTML = renderEquip() + "<h3 class='sec'>研究</h3>" + rows.join("") + (hidden ? `<p class="lead">🔒 まだ見えていない技術があと ${hidden} 個。新しい発見が道を拓く。</p>` : `<p class="lead">すべての技術を開放した!</p>`);
   }
@@ -802,6 +804,7 @@
     busy = true; $("bench").classList.add("working"); renderLab();
     setTimeout(() => {
       $("bench").classList.remove("working"); busy = false;
+      if (window.IND) IND.advance(1); // 実験1回で1日が経つ
       const dm = distillMix();
       if (dm) { runDistill(dm, names); return; }
       if (!r) {
@@ -876,6 +879,7 @@
         if (!has("safety_first")) { S.have.push("safety_first"); S.seen.push("safety_first"); toast("⛑️ 「安全第一」を得た"); }
       }
       S.pt += gain;
+      if (window.IND) IND.onDiscover(fresh_);
       say(`発見: ${fresh_.map((o) => items[o].name).join("、")} (+${gain}pt)${eqNote}`);
       if (window.FX) FX.discover(fresh_.map((o) => items[o].type), gain);
       const newEra = checkEra();
@@ -962,11 +966,19 @@
     save(); render();
   }
 
-  function buyTech(id) {
+  function buyTech(id, byGold) {
     const t = TECHS.find((x) => x.id === id);
     if (!t || S.techs.includes(id)) return;
+    if (byGold && window.IND) { // 資金で調達(探検隊・買い付け)
+      if (!S.cheat && techState(t) !== "open") return;
+      const g = IND.techGold(t);
+      if (!S.cheat && !IND.canPay(g)) { toast("資金が足りない"); return; }
+      if (!S.cheat) IND.pay(g);
+      IND.advance(Math.max(7, t.cost * 3)); // 調達には時間がかかる
+    } else {
     if (!S.cheat && (techState(t) !== "open" || S.pt < t.cost)) return;
     if (!S.cheat) S.pt -= t.cost;
+    }
     S.techs.push(id);
     t.grants.forEach((g) => { if (!has(g)) S.have.push(g); });
     say(`研究完了: ${t.name} → ${t.grants.map((g) => items[g].name).join("、")} を入手`);
@@ -978,13 +990,14 @@
 
   // ---- イベント ----
   document.addEventListener("click", (e) => {
-    const t = e.target.closest("[data-id],[data-slot],[data-amt],[data-f],[data-tab],[data-tech],[data-temp],[data-seal],[data-grind],[data-proc],[data-cool],[data-press],[data-dial],[data-still],[data-esrc],[data-evolt],[data-eel],[data-msub],[data-mol],[data-molback],[data-el]");
+    const t = e.target.closest("[data-id],[data-slot],[data-amt],[data-f],[data-tab],[data-tech],[data-techg],[data-temp],[data-seal],[data-grind],[data-proc],[data-cool],[data-press],[data-dial],[data-still],[data-esrc],[data-evolt],[data-eel],[data-msub],[data-mol],[data-molback],[data-el]");
     if (t) {
       if (t.dataset.amt) { if (busy) return; const [i, dlt] = t.dataset.amt.split(":").map(Number); if (dlt < 0 && amts[i] <= 1) { slots.splice(i, 1); amts.splice(i, 1); } else amts[i] = Math.min(MAX_AMT, amts[i] + dlt); renderLab(); }
       else if (t.dataset.id) addSlot(t.dataset.id);
       else if (t.dataset.slot !== undefined) { if (!busy) { slots.splice(+t.dataset.slot, 1); amts.splice(+t.dataset.slot, 1); renderLab(); } }
       else if (t.dataset.f) { filter = t.dataset.f; renderLab(); }
       else if (t.dataset.tech) buyTech(t.dataset.tech);
+      else if (t.dataset.techg) buyTech(t.dataset.techg, true);
       else if (t.dataset.temp) { const l = +t.dataset.temp; if (busy) return; if (tempUnlocked(l)) { temp = l; renderCond(); } else toast("今の設備では、この温度は出せない"); }
       else if (t.dataset.seal) { if (busy) return; if (sealUnlocked()) { sealed = !sealed; renderCond(); } else toast("空気を断つには、まず容器が必要だ"); }
       else if (t.dataset.msub !== undefined) { molSub = +t.dataset.msub; molSel = null; renderMol(); }
@@ -1013,7 +1026,7 @@
       else if (t.dataset.el) showElement(t.dataset.el);
       else if (t.dataset.tab) {
         document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b === t));
-        ["lab", "tech", "table", "mol", "codex"].forEach((n) => ($("tab-" + n).hidden = n !== t.dataset.tab));
+        ["lab", "tech", "table", "mol", "codex", "ind"].forEach((n) => ($("tab-" + n).hidden = n !== t.dataset.tab));
         window.scrollTo(0, 0);
       }
     }

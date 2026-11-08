@@ -14,6 +14,7 @@ require("../elements_dyn.js");
 require("../elements_yield.js");
 require("../elements_yield2.js");
 require("../elements_why.js");
+require("../elements_market.js");
 const items = {};
 for (const r of D.ITEM_ROWS) {
   if (items[r[0]]) throw new Error("duplicate item " + r[0]);
@@ -112,3 +113,5 @@ if (D.EQUATIONS) {
 console.log(`items=${Object.keys(items).length} recipes=${D.RECIPE_ROWS.length} techs=${D.TECHS.length} leftoverPt=${pt}`);
 if (errs.length) { console.error(errs.join("\n")); process.exit(1); }
 console.log("OK: すべてのアイテムに到達可能");
+
+{ const D = require("../elements_extra.js")._D; if (D.MARKET_UNKNOWN.length) { console.log("価格表に存在しないID:", D.MARKET_UNKNOWN.join(" ")); process.exitCode = 1; } else console.log("OK: 価格表のIDはすべて実在(" + Object.keys(D.MARKET).length + "品目)"); }
