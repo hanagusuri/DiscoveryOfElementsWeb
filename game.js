@@ -962,6 +962,9 @@
     if (S.pt < HINT_COST) return;
     const nm = (i) => items[i].emoji + items[i].name;
     const cands = []; // {tier, text}
+    // 作れるものの種類で、文言を変える(道具・知識・物質)
+    const kindOf = (r) => { const ts = [...new Set(r.out.filter((o) => !has(o)).map((o) => items[o].type))]; return ts.length === 1 && ts[0] === "tool" ? "tool" : ts.length === 1 && ts[0] === "concept" ? "concept" : "mat"; };
+    const W = { mat: ["何かが起きる。", "何かが起きそうだが、今のままでは足りない。", "何かが起きそうだ。"], tool: ["何か、道具(装置)が作れそうだ。", "何か、道具(装置)が作れそうだが、今のままでは足りない。", "何か、道具(装置)が作れそうだ。"], concept: ["何かが、分かりそうだ。", "何かが、分かりそうだが、今のままでは足りない。", "何かが、分かりそうだ。"] };
     recipes.forEach((r) => {
       if (!r.out.some((o) => !has(o))) return; // すでに全部発見している
       const miss = r.inp.filter((i) => !has(i));
@@ -969,12 +972,12 @@
       const blocks = recipeBlocks(r);
       if (!miss.length && !blocks.length) { // すぐ実行できる
         const hide = Math.floor(Math.random() * r.inp.length);
-        cands.push({ tier: 1, text: "ヒント: " + r.inp.map((i, k) => (k === hide ? "？" : nm(i))).join(" + ") + " で何かが起きる。" + (r.ratio ? "分量にも決まりがありそうだ。" : "") });
+        cands.push({ tier: 1, text: "ヒント: " + r.inp.map((i, k) => (k === hide ? "？" : nm(i))).join(" + ") + " で" + W[kindOf(r)][0] + (r.ratio ? "分量にも決まりがありそうだ。" : "") });
       } else if (!miss.length) { // 材料はそろっているが、設備や条件が足りない
-        cands.push({ tier: 2, text: "ヒント: " + r.inp.map(nm).join(" + ") + " で何かが起きそうだが、今のままでは足りない。" + blocks[0] });
+        cands.push({ tier: 2, text: "ヒント: " + r.inp.map(nm).join(" + ") + " で" + W[kindOf(r)][1] + blocks[0] });
       } else { // 材料が1つ足りない
         const have_ = r.inp.filter((i) => has(i)).map(nm);
-        cands.push({ tier: 3, text: "ヒント: " + (have_.length ? have_.join(" + ") + " に、" : "") + "もう1つ、" + missingKind(miss[0]) + "を加えると、何かが起きそうだ。" + (blocks.length ? "さらに、" + blocks[0] : "") });
+        cands.push({ tier: 3, text: "ヒント: " + (have_.length ? have_.join(" + ") + " に、" : "") + "もう1つ、" + missingKind(miss[0]) + "を加えると、" + W[kindOf(r)][2] + (blocks.length ? "さらに、" + blocks[0] : "") });
       }
     });
     // 蒸留で成分を取り出せる混合物
