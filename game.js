@@ -300,7 +300,17 @@
 
   function renderMol() {
     const body = $("molBody"); if (!body) return;
-    if (!has("atom") && !S.cheat) { body.innerHTML = `<p class="lead">🔒 物質が「原子」のつながりでできていると分かる(原子論)と、分子の構造が見えるようになる。</p>`; return; }
+    if (!has("atom") && !S.cheat) {
+      // 追体験だけは、原子論の前から開く(酸素の発見に必要な「気体化学」を得る場所なので、原子論の後に置くと、堂々巡りになる)
+      const ri = window.EODX ? EODX.subs.indexOf("追体験") : -1;
+      const lock = `<p class="lead">🔒 物質が「原子」のつながりでできていると分かる(原子論)と、分子の構造が見えるようになる。</p>`;
+      if (ri < 0) { body.innerHTML = lock; return; }
+      const idx = 3 + ri;
+      if (molSub !== idx) { body.innerHTML = `<div class="chips msub"><button data-msub="${idx}">追体験</button></div>` + lock + `<p class="lead">🕯️ 「追体験」は、すでに開いています。歴史上の実験を再現して、新しい知識を得よう。</p>`; return; }
+      body.innerHTML = `<div class="chips msub"><button data-msub="${idx}" class="on">追体験</button></div>` + EODX.render(ri);
+      if (EODX.after) EODX.after(ri);
+      return;
+    }
     const tabs = ["構造図鑑", "化学結合", "異性体"].concat(window.EODX ? EODX.subs : []).map((n, i) => `<button data-msub="${i}" class="${molSub === i ? "on" : ""}">${n}</button>`).join("");
     let html = `<div class="chips msub">${tabs}</div>`;
     if (molSub === 0) html += molSel && (MOLS[molSel] || isMetalItem(molSel)) ? molDetail(molSel) : molList();
