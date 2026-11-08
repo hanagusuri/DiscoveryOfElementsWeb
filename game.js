@@ -31,6 +31,8 @@
   }
   const save = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {} };
   const has = (id) => S.have.includes(id);
+  // 時代は「節目の発見」で決まる(単にその時代のアイテムを持っているだけでは進まない)
+  function currentEra() { let e = 1; for (let k = 2; k <= 4; k++) { if ((DATA.ERA_GATES[k] || []).every((id) => S.have.includes(id))) e = k; else break; } return e; }
   const $ = (id) => document.getElementById(id);
   const say = (t) => {
     if (window.FX) FX.onSay(t); S.log.unshift(t); S.log = S.log.slice(0, 30); };
@@ -588,7 +590,7 @@
     syncElectricity();
     checkMolInsights();
     $("pt").textContent = S.pt;
-    const era = Math.max(1, ...S.have.map((i) => items[i].era));
+    const era = currentEra();
     $("eraName").textContent = `第${era}期 ${ERAS[era].name}`;
     $("eraSub").textContent = ERAS[era].sub + (S.cheat ? " 🛠" : "") + (S.injured ? " 🩹療養中" : "");
     const total = order.length;
@@ -779,7 +781,7 @@
   }
 
   function checkEra() {
-    const era = Math.max(...S.have.map((i) => items[i].era));
+    const era = currentEra();
     if (era > S.maxEra) { S.maxEra = era; save(); return era; }
     return 0;
   }
@@ -1018,6 +1020,7 @@
   $("btnCheat").onclick = () => { S.cheat = !S.cheat; save(); render(); toast("チートモード " + (S.cheat ? "ON" : "OFF")); };
   $("btnReset").onclick = () => { if (confirm("セーブデータをすべて消去して、最初の状態からやり直しますか?" + String.fromCharCode(10) + "(チートモードもOFFに戻ります。音や演出の設定は残ります)")) { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} location.reload(); } };
 
+  S.maxEra = currentEra(); // 旧セーブの時代表示を、新しい判定に合わせる
   window.EOD = { S: () => S, has, items, order, ptOf, grantConcept, save, render, toast, say, DATA, MolViz, showCard };
   if (window.EODX) EODX.init(window.EOD);
   render();

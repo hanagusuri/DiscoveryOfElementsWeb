@@ -270,5 +270,8 @@ for (const [inp, ratio] of RATIOS) {
   row[4] = ratio;
 }
 
-const DATA = { ERAS, ITEM_ROWS, PT_BY_TYPE, START_ITEMS, RECIPE_ROWS, TECHS, TEMPS, SEAL_NEED, MAX_AMT, RATIOS };
+// 時代の進み方: その時代に入るために必要な「節目の発見」(前の時代を通過していることが前提)
+//   第2期 錬金術 = 蒸留器(蒸留の発明) / 第3期 近代化学 = 燃焼理論(ラヴォアジエ) / 第4期 現代科学 = 電子の発見(1897年)
+const ERA_GATES = { 2: ["alembic"], 3: ["combustion"], 4: ["electron"] };
+const DATA = { ERA_GATES, ERAS, ITEM_ROWS, PT_BY_TYPE, START_ITEMS, RECIPE_ROWS, TECHS, TEMPS, SEAL_NEED, MAX_AMT, RATIOS };
 if (typeof module !== "undefined") module.exports = DATA;

@@ -71,7 +71,7 @@
 
   // ---------------- 画面 ----------------
   const view = document.getElementById("view"), nav = document.getElementById("nav");
-  const TABS = [["recipes", "反応一覧"], ["items", "アイテム"], ["tree", "作り方ツリー"], ["map", "依存マップ"], ["progress", "進捗(セーブ)"], ["balance", "ポイント収支"], ["check", "検証・統計"], ["tech", "技術"]];
+  const TABS = [["recipes", "反応一覧"], ["items", "アイテム"], ["tree", "作り方ツリー"], ["map", "依存マップ"], ["progress", "進捗(セーブ)"], ["balance", "ポイント収支"], ["check", "検証・統計"], ["tech", "技術"], ["equip", "設備・開放条件"]];
   let tab = "recipes", sel = null;
   document.getElementById("counts").textContent = `アイテム ${ORDER.length} / レシピ ${D.RECIPE_ROWS.length} / 技術 ${D.TECHS.length}`;
   function drawNav() { nav.innerHTML = TABS.map(([k, n]) => `<button data-tab="${k}" class="${tab === k ? "on" : ""}">${n}</button>`).join(""); }
@@ -328,6 +328,103 @@
     return h;
   }
 
+  // ---- 設備と開放条件 ----
+  const EQUIP_NOTE = {
+    thermometer: "実験室の温度が℃の数値で表示される。蒸留ダイヤルが1℃刻みになる。融点・沸点などを数値で測れる。",
+    balance: "質量を正確に量る。質量保存・ファラデーの法則の実験に使う。",
+    voltmeter: "電気回路の電圧を数値(V)で表示する。自作電池の起電力が数値で分かる。",
+    calorimeter: "実験のたびに反応熱 ΔH を数値で表示する。「反応熱」の概念の前提。",
+    ph_meter: "分析で、pHを数値で読める。",
+    burette: "滴定のミニゲームに必要。",
+    bunsen: "分析の炎色反応に使う。熱の安定度も上がる。",
+    alembic: "蒸留パネルが使える(分離能25℃)。揮発する金属(亜鉛・水銀・リン・ヒ素)の製錬に必須。",
+    fractionating_column: "蒸留の分離能が8℃になる。エタノールと水、イソブタンなどを分けられる。",
+    rectification_column: "蒸留の分離能が2℃になる。液体空気のアルゴンと酸素を分けられる。",
+    mortar: "粒度「粉末」が選べる。粉にしないと反応しない鉱石や、焙焼に必要。",
+    pottery: "密閉・排気管が使える。加熱容器になる。窯・蒸留器など多くの設備の材料。",
+    pressure_vessel: "圧力 10気圧が選べる。容器の破裂(密閉でガスが出る反応)を防ぐ。",
+    compressor: "圧力 100気圧が選べる。ハーバー法などの高圧反応に必須。",
+    high_pressure_reactor: "圧力 300気圧が選べる。",
+    goggles: "保護具(着用で効く): 薬傷・中毒・真空管の内破・激しい発熱の被害を軽減する。",
+    gloves: "保護具(着用で効く): 薬傷・中毒・感電(36V以上)を軽減する。",
+    respirator: "保護具(着用で効く): 有毒ガス・粉じんを軽減する。",
+    fume_hood: "換気「ドラフト」が選べる。有毒ガス・中毒を完全に防ぐ。",
+    blast_shield: "(持っていれば自動)爆発・容器破裂・真空管の内破の重さを軽減する。",
+    lead_shield: "(持っていれば自動)被曝(放射性物質)を完全に防ぐ。",
+    fire_bucket: "(持っていれば自動)火災・自然発火の被害の重さを軽減する。",
+    ice: "冷却「氷水(0℃)」が選べる。",
+    freezing_mixture: "冷却「寒剤(−20℃)」が選べる。",
+    liquid_air: "冷却「液体空気(−190℃)」が選べる。蒸留で成分を取り出せる。",
+    refrigerator: "空気の液化に必要。極低温技術の設備。",
+    cyclotron: "人工元素(テクネチウム〜オガネソン)の合成に必須。",
+    spectroscope: "希土類・タリウムなどの発見に必須。分離効率+25%。",
+    microscope: "細胞・微生物の観察、光学分割に必須。分離効率+25%。",
+    centrifuge: "分離効率+50%(分別結晶の繰り返し回数が減る)。",
+    filter: "沈殿をろ過して分け取る(白金族・放射性元素の分離に必須)。",
+    pneumatic_trough: "気体が発生する実験(水素・CO₂・酸素・アンモニアなど)に必須。",
+    glass_flask: "強酸(硫酸・塩酸・硝酸・王水)の調合に必須。ガラス器具の基本。",
+    eudiometer: "水素と酸素の化合による水の合成に必須。",
+    vacuum_pump: "真空管の製作に必須。",
+    arc_furnace: "温度段階「電気アーク(3000℃〜)」が使える。",
+  };
+  function equipView() {
+    const T = D.TEMPS, P = D.PRESS_LEVELS;
+    const set = new Set();
+    ORDER.forEach((id) => { if (IT[id].type === "tool") set.add(id); });
+    [1, 2, 3, 4, 5].forEach((i) => { if (T[i].need) set.add(T[i].need); });
+    set.add(D.SEAL_NEED); set.add("mortar");
+    P.forEach((l) => { if (l.need) set.add(l.need); });
+    (D.COOL_NEED || []).forEach((n) => { if (n) set.add(n); });
+    Object.keys(D.SOURCES || {}).forEach((k) => set.add(k));
+    Object.keys(D.EQUIP_STAB || {}).forEach((k) => set.add(k)); Object.keys(D.EQUIP_EFF || {}).forEach((k) => set.add(k));
+    ["goggles", "gloves", "respirator", "fume_hood", "blast_shield", "lead_shield", "fire_bucket", "ice", "freezing_mixture", "liquid_air"].forEach((k) => IT[k] && set.add(k));
+    // その設備を必須とするレシピ
+    const gate = {}, addG = (id, i, why) => { (gate[id] = gate[id] || []).push({ i, why }); };
+    D.RECIPE_ROWS.forEach((r, i) => {
+      (r[7] || []).forEach((e) => addG(e, i, "設備"));
+      r[0].forEach((x) => { if (set.has(x) && IT[x].type === "tool") addG(x, i, "材料"); });
+      const c = r[3];
+      if (c) { if (c.t && c.t[0] >= 3 && T[c.t[0]].need) addG(T[c.t[0]].need, i, "温度"); if (c.sealed === true) addG(D.SEAL_NEED, i, "密閉"); if (c.fine) addG("mortar", i, "粉末"); }
+    });
+    const eff = (id) => {
+      const out = [];
+      [1, 2, 3, 4, 5].forEach((i) => { if (T[i].need === id) out.push(`温度段階「${T[i].name}」(${T[i].c})`); });
+      if (id === D.SEAL_NEED) out.push("容器: 密閉・排気管");
+      P.forEach((l) => { if (l.need === id) out.push(`圧力 ${l.p}気圧`); });
+      (D.COOL_NEED || []).forEach((n, i) => { if (n === id) out.push(`冷却「${D.COOL_NAME[i]}」(${D.COOL_C[i]}℃)`); });
+      const s = (D.SOURCES || {})[id]; if (s) out.push(`電源: ${s.perCell ? s.perCell + "V×最大" + s.maxCells + "セル" : "1〜" + s.maxV + "V可変"} / 電流${["", "弱", "安定", "大"][s.level]} / 電圧の揺らぎ${(s.drift * 100).toFixed(0)}%`);
+      if ((D.EQUIP_STAB || {})[id]) out.push(`熱の安定度 +${Math.round(D.EQUIP_STAB[id] * 100)}%`);
+      if ((D.EQUIP_EFF || {})[id]) out.push(`分離効率 +${Math.round(D.EQUIP_EFF[id] * 100)}%`);
+      if ((D.BREAKABLE || []).includes(id)) out.push("事故で壊れる(作り直せる)");
+      return out;
+    };
+    const rows = [...set].filter((id) => IT[id]).sort((a, b) => (depth[a] === undefined ? 99 : depth[a]) - (depth[b] === undefined ? 99 : depth[b]) || IT[a].idx - IT[b].idx);
+    // ---- 段階ごとの開放表 ----
+    const needPill = (n) => (n ? pill(n) : '<span class="chip ok">初期から</span>');
+    let h = `<p class="muted">設備(道具・装置)の、作り方(開放条件)と、持つと何ができるようになるか(効果)、どのレシピに必須か、の一覧です。</p>`;
+    h += `<div class="grid2">`;
+    h += `<div class="card"><h3 style="margin:0 0 6px">温度段階の開放</h3><table><tr><th>段階</th><th>温度</th><th>開放条件</th><th>下限として必須のレシピ</th></tr>${[1, 2, 3, 4, 5].map((i) => `<tr><td>${T[i].name}</td><td>${T[i].c}</td><td>${needPill(T[i].need)}</td><td>${D.RECIPE_ROWS.filter((r) => r[3] && r[3].t && r[3].t[0] === i).length}件</td></tr>`).join("")}</table></div>`;
+    h += `<div class="card"><h3 style="margin:0 0 6px">圧力段階の開放</h3><table><tr><th>圧力</th><th>開放条件</th></tr>${P.map((l) => `<tr><td>${l.p}気圧</td><td>${needPill(l.need)}</td></tr>`).join("")}</table></div>`;
+    h += `<div class="card"><h3 style="margin:0 0 6px">冷却段階の開放</h3><table><tr><th>冷却</th><th>温度</th><th>開放条件</th></tr>${D.COOL_NAME.map((n, i) => `<tr><td>${n}</td><td>${D.COOL_C[i]}℃</td><td>${needPill(D.COOL_NEED[i])}</td></tr>`).join("")}</table></div>`;
+    h += `<div class="card"><h3 style="margin:0 0 6px">電源の種類</h3><table><tr><th>電源</th><th>電圧</th><th>電流</th><th>揺らぎ</th><th>入手</th></tr>${Object.entries(D.SOURCES).map(([id, s]) => `<tr><td>${pill(id)}</td><td>${s.perCell ? s.perCell + "V×" + s.maxCells : "〜" + s.maxV + "V"}</td><td>${["", "弱", "安定", "大"][s.level]}</td><td>${(s.drift * 100).toFixed(0)}%</td><td class="eq">${((SRC[id] || []).filter((q) => q.kind !== "start")[0] || { text: "—" }).text}</td></tr>`).join("")}</table></div>`;
+    h += `<div class="card"><h3 style="margin:0 0 6px">蒸留の分離能</h3><table><tr><th>装置</th><th>分けられる沸点差</th><th>開放条件</th></tr><tr><td>${pill("alembic")}</td><td>25℃以上</td><td class="eq">${((SRC.alembic || [])[0] || { text: "" }).text}</td></tr><tr><td>${pill("fractionating_column")}</td><td>8℃以上</td><td class="eq">${((SRC.fractionating_column || [])[0] || { text: "" }).text}</td></tr><tr><td>${pill("rectification_column")}</td><td>2℃以上</td><td class="eq">${((SRC.rectification_column || [])[0] || { text: "" }).text}</td></tr></table></div>`;
+    h += `</div>`;
+    // ---- 設備の一覧 ----
+    h += `<div class="card"><h3 style="margin:0 0 6px">設備一覧 <span class="chip">${rows.length}</span></h3><table><tr><th>設備</th><th>深さ</th><th>開放条件(作り方・入手)</th><th>効果・開放するもの</th><th>必須とするレシピ</th></tr>` + rows.map((id) => {
+      const src = (SRC[id] || []).filter((q) => q.kind !== "start");
+      const cond = id && D.START_ITEMS.includes(id) ? '<span class="chip ok">初期から</span>' : src.map((q) => {
+        if (q.kind === "recipe") { const r = D.RECIPE_ROWS[q.idx]; return `<div>${r[0].map(pill).join("＋")} ${recipeInfo(r)}</div>`; }
+        return `<div class="eq">${esc(q.text)}</div>`;
+      }).join("") || '<span class="chip warn">入手元なし</span>';
+      const tools = uniq(src.flatMap((q) => q.inputs)).filter((x) => set.has(x) && x !== id);
+      const e = eff(id), note = EQUIP_NOTE[id];
+      const g = gate[id] || [], gi = uniq(g.map((x) => x.i));
+      const why = {}; g.forEach((x) => { why[x.why] = (why[x.why] || 0) + 1; });
+      return `<tr><td>${pill(id)}<br><small>${TYPE[IT[id].type]}・第${IT[id].era}期</small></td><td><span class="depth">${depth[id] === undefined ? "?" : depth[id]}</span></td><td>${cond}${tools.length ? `<div class="eq">前提設備: ${tools.map(pill).join("")}</div>` : ""}</td><td>${e.map((x) => `<span class="chip ok">${esc(x)}</span>`).join("")}${note ? `<div class="eq">${esc(note)}</div>` : ""}${!e.length && !note ? '<span class="muted">—</span>' : ""}</td><td>${gi.length ? `<details style="margin:0"><summary>${gi.length}件 <small>(${Object.entries(why).map(([k, v]) => k + v).join("・")})</small></summary>${gi.slice(0, 30).map((i) => `<div class="eq">${D.RECIPE_ROWS[i][0].map(nm).join("+")} → ${D.RECIPE_ROWS[i][1].map(nm).join("、")}</div>`).join("")}${gi.length > 30 ? `<div class="muted">…ほか${gi.length - 30}件</div>` : ""}</details>` : '<span class="muted">—</span>'}</td></tr>`;
+    }).join("") + `</table></div>`;
+    return h;
+  }
+
   // ---- 出力 ----
   function download(name, text, type) { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type: type || "text/plain" })); a.download = name; a.click(); }
   function exportData(kind) {
@@ -338,7 +435,7 @@
 
   // ---- 描画 ----
   function render() {
-    view.innerHTML = { recipes: recipesView, items: itemsView, tree: treeView, map: mapView, progress: progressView, balance: balanceView, check: checkView, tech: techView }[tab]();
+    view.innerHTML = { recipes: recipesView, items: itemsView, tree: treeView, map: mapView, progress: progressView, balance: balanceView, check: checkView, tech: techView, equip: equipView }[tab]();
     const on = (id, ev, fn) => { const e = document.getElementById(id); if (e) e.addEventListener(ev, fn); };
     on("q", "input", (e) => { qRec = e.target.value; const pos = e.target.selectionStart; render(); const q = document.getElementById("q"); q.focus(); q.setSelectionRange(pos, pos); });
     on("ft", "change", (e) => { fType = e.target.value; render(); }); on("fs", "change", (e) => { fState = e.target.value; render(); }); on("fis", "change", (e) => { fiState = e.target.value; render(); }); on("oc", "change", (e) => { onlyCond = e.target.checked; render(); });
