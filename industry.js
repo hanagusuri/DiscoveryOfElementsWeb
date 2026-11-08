@@ -32,9 +32,12 @@
     return Math.max(0.4, 1 + v * Math.sin(month() * 0.9 + hash(sec)) + (st().shock[sec] || 0));
   }
   const staffN = (r) => st().staff[r] || 0;
+  const era = () => Math.min(4, S().maxEra || 1);
+  // 時代による需要(月の需要=基準×時代の倍率)
+  function demand(id) { const m = D.marketOf(id); return m ? Math.round(m.dem * D.demandMul(id, m.sec, era())) : 0; }
   function price(id) {
     const m = D.marketOf(id); if (!m) return 0;
-    return m.price * secIdx(m.sec) * (1 + 0.05 * staffN("salesman"));
+    return m.price * D.priceMul(id, era()) * secIdx(m.sec) * (1 + 0.05 * staffN("salesman"));
   }
 
   // ---- 製造費・建設費 ----
@@ -68,7 +71,7 @@
   const yieldRate = () => Math.min(0.98, 0.85 + 0.03 * staffN("engineer"));
   const capOf = (lv) => Math.floor(D.PLANT_LV[lv].cap * (1 + 0.1 * staffN("engineer")));
   function plan(id, lv) { // 月次の見込み(需要の上限を考慮)
-    const m = D.marketOf(id), sold = Math.min(Math.floor(capOf(lv) * yieldRate()), m.dem), units = sold; // 売れる分だけ作る
+    const m = D.marketOf(id), sold = Math.min(Math.floor(capOf(lv) * yieldRate()), demand(id)), units = sold; // 売れる分だけ作る
     const rev = sold * price(id), cost = units * unitCost(id), up = upkeep(id, lv);
     return { units, sold, rev, cost, up, profit: rev - cost - up };
   }
@@ -170,14 +173,15 @@
       const m = D.marketOf(id), lv = st().plants[id] || 0, lk = lack(id), r = recipeOf(id);
       const margin = price(id) - unitCost(id);
       let b = "";
-      if (lv < 3) {
+      if (demand(id) <= 0) b = `<small class="warn">この時代には、需要がありません</small>`;
+      else if (lv < 3) {
         const nx = lv + 1, c = buildCost(id, nx) - (lv ? buildCost(id, lv) : 0), p = plan(id, nx);
         b = lk.length ? `<small class="warn">必要な設備: ${lk.map(nm).join("・")}</small>` :
           `<button class="${canPay(c) ? "primary" : ""}" data-ind="build" data-id="${id}" data-lv="${nx}">${lv ? "拡張" : "建設"}: ${D.PLANT_LV[nx].name} (${easy() ? "無料" : fmt(c) + "G"}) 月益 見込 ${p.profit >= 0 ? "+" : ""}${fmt(p.profit)}G</button>`;
       }
       return `<div class="cx"><div class="e">${items[id].emoji}</div><div><h4>${nm(id)} <small>${D.SECTORS[m.sec].name}${m.auto ? "(標準価格)" : ""}</small></h4>` +
-        `<p>単価 <b>${fmt(price(id))}G</b> ／ 製造原価 ${fmt(unitCost(id))}G ／ 月の需要 ${m.dem}単位 ／ ${margin > 0 ? "利益あり" : '<span class="warn">赤字</span>'}</p>` +
-        `<p class="how">${r ? "工業的製法: 実験室の配合(" + r[0].map(nm).join("+") + ")を大規模化" : "採掘・採取・蒸留などで調達"}${lv ? ` ／ <b>現在: ${D.PLANT_LV[lv].name}</b>` : ""}</p>${b}</div></div>`;
+        `<p>単価 <b>${fmt(price(id))}G</b> ／ 製造原価 ${fmt(unitCost(id))}G ／ 月の需要 ${demand(id)}単位${D.demandMul(id, m.sec, era()) > 1.4 ? " 📈" : D.demandMul(id, m.sec, era()) < 0.6 ? " 📉" : ""} ／ ${margin > 0 ? "利益あり" : '<span class="warn">赤字</span>'}</p>` +
+        `${(() => { const u = D.usesFor(id, era()); return u ? `<p class="use">🏭 第${era()}期の用途: ${u.now}</p>` : ""; })()}<p class="how">${r ? "工業的製法: 実験室の配合(" + r[0].map(nm).join("+") + ")を大規模化" : "採掘・採取・蒸留などで調達"}${lv ? ` ／ <b>現在: ${D.PLANT_LV[lv].name}</b>` : ""}</p>${b}</div></div>`;
     }).join("") || '<p class="lead">売れる品目がまだありません。</p>';
     return h;
   }

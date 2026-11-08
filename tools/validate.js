@@ -15,6 +15,16 @@ require("../elements_yield.js");
 require("../elements_yield2.js");
 require("../elements_why.js");
 require("../elements_market.js");
+require("../elements_uses.js");
+require("../elements_era.js");
+require("../elements_more.js");
+require("../elements_inorg.js");
+require("../elements_org2.js");
+require("../elements_bio.js");
+require("../elements_org3.js");
+require("../elements_inorg2.js");
+require("../elements_adv.js");
+require("../elements_nat.js");
 const items = {};
 for (const r of D.ITEM_ROWS) {
   if (items[r[0]]) throw new Error("duplicate item " + r[0]);
@@ -115,3 +125,7 @@ if (errs.length) { console.error(errs.join("\n")); process.exit(1); }
 console.log("OK: すべてのアイテムに到達可能");
 
 { const D = require("../elements_extra.js")._D; if (D.MARKET_UNKNOWN.length) { console.log("価格表に存在しないID:", D.MARKET_UNKNOWN.join(" ")); process.exitCode = 1; } else console.log("OK: 価格表のIDはすべて実在(" + Object.keys(D.MARKET).length + "品目)"); }
+
+{ const D = require("../elements_extra.js")._D; const miss = D.ITEM_ROWS.filter((r) => ["element", "compound", "material"].includes(r[3]) && !D.USES[r[0]]).map((r) => r[0]); console.log(miss.length ? "用途が未記入: " + miss.join(" ") : "OK: 元素・化合物・素材のすべてに用途がある"); if (miss.length) process.exitCode = 1; }
+
+{ const D = require("../elements_extra.js")._D; const ids = new Set(D.ITEM_ROWS.map((r) => r[0])); const bad = [...Object.keys(D.ERA_USES), ...Object.keys(D.DEMAND_ERA), ...Object.keys(D.PRICE_ERA)].filter((k) => !ids.has(k)); console.log(bad.length ? "時代データに存在しないID: " + bad.join(" ") : "OK: 時代別の用途・需要・価格のIDはすべて実在"); if (bad.length) process.exitCode = 1; }
