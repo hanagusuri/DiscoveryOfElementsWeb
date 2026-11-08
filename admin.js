@@ -71,7 +71,7 @@
 
   // ---------------- 画面 ----------------
   const view = document.getElementById("view"), nav = document.getElementById("nav");
-  const TABS = [["recipes", "反応一覧"], ["items", "アイテム"], ["tree", "作り方ツリー"], ["map", "依存マップ"], ["progress", "進捗(セーブ)"], ["balance", "ポイント収支"], ["check", "検証・統計"], ["tech", "技術"], ["equip", "設備・開放条件"]];
+  const TABS = [["recipes", "反応一覧"], ["items", "アイテム"], ["tree", "作り方ツリー"], ["map", "依存マップ"], ["progress", "進捗(セーブ)"], ["balance", "ポイント収支"], ["econ", "産業・収支"], ["check", "検証・統計"], ["tech", "技術"], ["equip", "設備・開放条件"]];
   let tab = "recipes", sel = null;
   document.getElementById("counts").textContent = `アイテム ${ORDER.length} / レシピ ${D.RECIPE_ROWS.length} / 技術 ${D.TECHS.length}`;
   function drawNav() { nav.innerHTML = TABS.map(([k, n]) => `<button data-tab="${k}" class="${tab === k ? "on" : ""}">${n}</button>`).join(""); }
@@ -425,6 +425,37 @@
     return h;
   }
 
+  // ---- 産業・収支 ----
+  const ec = { era: 3, eng: 0, sales: 0, sec: "", onlyProfit: true, sort: "profit", months: 36 };
+  function econView() {
+    const EC = D.ECON; if (!EC) return "<p>elements_econ.js が読み込まれていません。</p>";
+    const press = D.PRESS_LEVELS.filter((l) => !l.need || (IT[l.need] && IT[l.need].era <= ec.era)).map((l) => l.p);
+    const ctx = { era: ec.era, eng: ec.eng, sales: ec.sales, idx: () => 1, press };
+    const ids = EC.available(ec.era);
+    let rows = ids.map((id) => { const m = D.marketOf(id), p1 = EC.plan(id, 1, ctx), p3 = EC.plan(id, 3, ctx); return { id, m, p1, p3, c1: EC.buildCost(id, 1), c3: EC.buildCost(id, 3), pb: p1.profit > 0 ? EC.buildCost(id, 1) / p1.profit : Infinity, uc: EC.unitCost(id), pr: EC.price(id, ctx), dem: EC.demand(id, ec.era), yi: p1.yi }; });
+    const all = rows.length;
+    if (ec.sec) rows = rows.filter((r) => r.m.sec === ec.sec);
+    if (ec.onlyProfit) rows = rows.filter((r) => r.p1.profit > 0);
+    rows.sort((a, b) => (ec.sort === "pb" ? a.pb - b.pb : ec.sort === "cost" ? a.c1 - b.c1 : b.p1.profit - a.p1.profit));
+    const sim = EC.simulate(ec.era, ec.months, { eng: ec.eng, sales: ec.sales }), hs = sim.hist;
+    const prof = ids.filter((id) => EC.plan(id, 1, ctx).profit > 0).length;
+    const secSum = Object.entries(D.SECTORS).map(([k, v]) => { const L = ids.filter((id) => D.marketOf(id).sec === k); const pf = L.filter((id) => EC.plan(id, 1, ctx).profit > 0); return `<tr><td>${v.emoji}${v.name}</td><td>${L.length}</td><td>${pf.length}</td><td>${_D_mul(k)}</td></tr>`; }).join("");
+    function _D_mul(k) { return "×" + D.SECTOR_ERA[k][ec.era - 1]; }
+    const opt = (v, cur, label) => `<option value="${v}" ${String(cur) === String(v) ? "selected" : ""}>${label}</option>`;
+    let h = `<p class="muted">産業(工場・市場)のバランス確認用です。時代・人員を変えて、各品目の、収益性と、投資の回収期間を見られます。ノーマルモードの調整に使います。(景気の変動は、平均値の1.0で計算)</p>`;
+    h += `<div class="bar"><label>時代 <select data-econ="era">${[1, 2, 3, 4].map((e) => opt(e, ec.era, "第" + e + "期 " + D.ERAS[e].name)).join("")}</select></label>` +
+      `<label>技師 <select data-econ="eng">${[0, 1, 2, 3, 5].map((n) => opt(n, ec.eng, n + "人")).join("")}</select></label><label>営業 <select data-econ="sales">${[0, 1, 2, 3, 5].map((n) => opt(n, ec.sales, n + "人")).join("")}</select></label>` +
+      `<label>業界 <select data-econ="sec"><option value="">すべて</option>${Object.entries(D.SECTORS).map(([k, v]) => opt(k, ec.sec, v.name)).join("")}</select></label>` +
+      `<label>並び <select data-econ="sort">${opt("profit", ec.sort, "月益(大きい順)")}${opt("pb", ec.sort, "回収月数(短い順)")}${opt("cost", ec.sort, "建設費(安い順)")}</select></label>` +
+      `<label><input type="checkbox" data-econ="onlyProfit" ${ec.onlyProfit ? "checked" : ""}> 黒字のみ</label></div>`;
+    h += `<div><span class="stat"><b>${all}</b>建てられる品目</span><span class="stat"><b>${prof}</b>黒字(工房)</span><span class="stat"><b>${hs[hs.length - 1].plants}</b>${ec.months}か月後の工場数</span><span class="stat"><b>${hs[hs.length - 1].net.toLocaleString()}G</b>${ec.months}か月後の月収</span></div>`;
+    h += `<div class="grid2"><div class="card"><h3 style="margin:0 0 6px">投資シミュレーション(初期資金 ${D.GOLD_START}G・毎月4品目を発見・最良の投資を繰り返す)</h3><table><tr><th>月</th><th>資金</th><th>月収</th><th>工場</th></tr>${[3, 6, 12, 18, 24, 36].filter((m) => m <= hs.length).map((m) => { const x = hs[m - 1]; return `<tr><td>${m}</td><td>${x.gold.toLocaleString()}G</td><td>${x.net.toLocaleString()}G</td><td>${x.plants}</td></tr>`; }).join("")}</table></div>` +
+      `<div class="card"><h3 style="margin:0 0 6px">業界ごと</h3><table><tr><th>業界</th><th>品目</th><th>黒字</th><th>この時代の需要倍率</th></tr>${secSum}</table></div></div>`;
+    h += `<div class="card"><h3 style="margin:0 0 6px">品目別の収支(月) <span class="chip">${rows.length}</span></h3><table><tr><th>品目</th><th>業界</th><th>単価</th><th>原価</th><th>月の需要</th><th>収率</th><th>工房 建設費</th><th>工房 月益</th><th>回収(月)</th><th>大工場 月益</th><th>必要設備</th></tr>` +
+      rows.slice(0, 400).map((r) => `<tr><td>${pill(r.id)}</td><td>${D.SECTORS[r.m.sec].name}</td><td>${r.pr.toFixed(1)}</td><td>${r.uc.toFixed(1)}</td><td>${r.dem}</td><td>${r.yi ? (r.yi.yf * 100).toFixed(0) + "%" + (r.yi.low ? ' <span class="chip warn">低</span>' : "") : "—"}</td><td>${r.c1.toLocaleString()}</td><td>${Math.round(r.p1.profit).toLocaleString()}</td><td>${isFinite(r.pb) ? r.pb.toFixed(1) : "—"}</td><td>${Math.round(r.p3.profit).toLocaleString()}</td><td class="eq">${EC.needs(r.id).map(nm).join("・") || "—"}</td></tr>`).join("") + `</table>${rows.length > 400 ? `<p class="muted">…ほか${rows.length - 400}件</p>` : ""}</div>`;
+    return h;
+  }
+
   // ---- 出力 ----
   function download(name, text, type) { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type: type || "text/plain" })); a.download = name; a.click(); }
   function exportData(kind) {
@@ -435,13 +466,14 @@
 
   // ---- 描画 ----
   function render() {
-    view.innerHTML = { recipes: recipesView, items: itemsView, tree: treeView, map: mapView, progress: progressView, balance: balanceView, check: checkView, tech: techView, equip: equipView }[tab]();
+    view.innerHTML = { recipes: recipesView, items: itemsView, tree: treeView, map: mapView, progress: progressView, balance: balanceView, econ: econView, check: checkView, tech: techView, equip: equipView }[tab]();
     const on = (id, ev, fn) => { const e = document.getElementById(id); if (e) e.addEventListener(ev, fn); };
     on("q", "input", (e) => { qRec = e.target.value; const pos = e.target.selectionStart; render(); const q = document.getElementById("q"); q.focus(); q.setSelectionRange(pos, pos); });
     on("ft", "change", (e) => { fType = e.target.value; render(); }); on("fs", "change", (e) => { fState = e.target.value; render(); }); on("fis", "change", (e) => { fiState = e.target.value; render(); }); on("oc", "change", (e) => { onlyCond = e.target.checked; render(); });
     on("qi", "input", (e) => { qItem = e.target.value; const pos = e.target.selectionStart; render(); const q = document.getElementById("qi"); q.focus(); q.setSelectionRange(pos, pos); });
     on("fit", "change", (e) => { fiType = e.target.value; render(); }); on("fie", "change", (e) => { fiEra = e.target.value; render(); });
     on("treeq", "change", (e) => { const hit = ORDER.find((id) => IT[id].name === e.target.value || id === e.target.value); if (hit) go("tree", hit); });
+    document.querySelectorAll("[data-econ]").forEach((e) => e.addEventListener("change", () => { const k = e.dataset.econ; ec[k] = e.type === "checkbox" ? e.checked : (isNaN(+e.value) || e.value === "" ? e.value : +e.value); if (k === "sort" || k === "sec") ec[k] = e.value; render(); }));
     if (tab === "map") wireMap();
   }
   const hash = location.hash.replace("#", "").split(":");

@@ -25,6 +25,7 @@ require("../elements_org3.js");
 require("../elements_inorg2.js");
 require("../elements_adv.js");
 require("../elements_nat.js");
+require("../elements_econ.js");
 const items = {};
 for (const r of D.ITEM_ROWS) {
   if (items[r[0]]) throw new Error("duplicate item " + r[0]);

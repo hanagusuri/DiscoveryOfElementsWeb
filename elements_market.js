@@ -71,6 +71,6 @@
   };
   // 工場の規模(月産の上限と建設費の倍率)
   _D.PLANT_LV = [null, { name: "工房", cap: 20, mult: 1, up: 0.12 }, { name: "工場", cap: 60, mult: 3, up: 0.10 }, { name: "大工場", cap: 200, mult: 9, up: 0.09 }];
-  _D.GOLD_START = 100;
+  _D.GOLD_START = 250;
   _D.DAYS_PER_MONTH = 30;
 })(...(typeof module !== "undefined" ? (() => { const h = require("./elements_extra.js"); return [h._T, h._rowOf, h._D]; })() : [_T, _rowOf, _D]));
