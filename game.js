@@ -966,7 +966,12 @@
     const kindOf = (r) => { const ts = [...new Set(r.out.filter((o) => !has(o)).map((o) => items[o].type))]; return ts.length === 1 && ts[0] === "tool" ? "tool" : ts.length === 1 && ts[0] === "concept" ? "concept" : "mat"; };
     const W = { mat: ["何かが起きる。", "何かが起きそうだが、今のままでは足りない。", "何かが起きそうだ。"], tool: ["何か、道具(装置)が作れそうだ。", "何か、道具(装置)が作れそうだが、今のままでは足りない。", "何か、道具(装置)が作れそうだ。"], concept: ["何かが、分かりそうだ。", "何かが、分かりそうだが、今のままでは足りない。", "何かが、分かりそうだ。"] };
     recipes.forEach((r) => {
-      if (!r.out.some((o) => !has(o))) return; // すでに全部発見している
+      if (!r.out.some((o) => !has(o))) return; // すでに全部持っている
+      if (r.out.every((o) => has(o) || S.seen.includes(o))) { // 以前に発見したが、事故で壊れた器具: 新しい発見ではない。作り直せることだけ、伝える
+        const broken = r.out.filter((o) => !has(o) && items[o].type === "tool");
+        if (broken.length && r.inp.every((i) => has(i)) && !recipeBlocks(r).length) cands.push({ tier: 2, text: "ヒント: 壊れた" + broken.map(nm).join("・") + "は、前と同じ材料(" + r.inp.map(nm).join(" + ") + ")で、作り直せそうだ。" });
+        return;
+      }
       const miss = r.inp.filter((i) => !has(i));
       if (miss.length > 1) return;
       const blocks = recipeBlocks(r);
