@@ -651,6 +651,44 @@
       (warn.length ? `<div class="hzline">⚠ 取り扱い注意: ${warn.join(" / ")}</div>` : "");
   }
 
+  // ---- 持ち物の絞り込みボタン: ドラッグで並べ替え(順序は保存) ----
+  const CHIP_DEF = { material: "素材", compound: "化合物", tool: "道具", element: "元素", concept: "概念" };
+  function chipList() {
+    const ord = (S.chipOrder || []).filter((k) => CHIP_DEF[k]);
+    Object.keys(CHIP_DEF).forEach((k) => { if (!ord.includes(k)) ord.push(k); });
+    return [["all", "すべて"]].concat(ord.map((k) => [k, CHIP_DEF[k]]));
+  }
+  function scrollToInv() {
+    const inv = $("inv"), top = $("labtop"); if (!inv) return;
+    const y = inv.getBoundingClientRect().top + window.scrollY - (top ? top.getBoundingClientRect().bottom : 0) - 8;
+    try { window.scrollTo({ top: Math.max(0, y), behavior: "smooth" }); } catch (e) { window.scrollTo(0, Math.max(0, y)); }
+  }
+  let chipDrag = null, chipNoClick = false;
+  document.addEventListener("pointerdown", (e) => {
+    const b = e.target.closest && e.target.closest("#chips button[data-f]");
+    if (!b || b.dataset.f === "all") return;
+    chipDrag = { key: b.dataset.f, x: e.clientX, y: e.clientY, on: false, el: b, to: null };
+  });
+  document.addEventListener("pointermove", (e) => {
+    if (!chipDrag) return;
+    if (!chipDrag.on) { if (Math.hypot(e.clientX - chipDrag.x, e.clientY - chipDrag.y) < 8) return; chipDrag.on = true; chipDrag.el.classList.add("dragging"); }
+    const t = document.elementFromPoint(e.clientX, e.clientY), c = t && t.closest && t.closest("#chips button[data-f]");
+    document.querySelectorAll("#chips .dropto").forEach((x) => x.classList.remove("dropto"));
+    chipDrag.to = c && c.dataset.f !== "all" && c.dataset.f !== chipDrag.key ? c.dataset.f : null;
+    if (chipDrag.to) c.classList.add("dropto");
+  });
+  const endChipDrag = () => {
+    const d = chipDrag; chipDrag = null; if (!d || !d.on) return;
+    chipNoClick = true; setTimeout(() => { chipNoClick = false; }, 0);
+    if (d.to) {
+      const ord = chipList().slice(1).map((x) => x[0]), i = ord.indexOf(d.key), j = ord.indexOf(d.to);
+      ord[i] = d.to; ord[j] = d.key; S.chipOrder = ord; save();
+    }
+    renderLab();
+  };
+  document.addEventListener("pointerup", endChipDrag);
+  document.addEventListener("pointercancel", endChipDrag);
+
   function renderLab() {
     if (window.FX) FX.bench({ fire: slots.includes("fire"), elec: slots.includes("electricity"), cold: !slots.includes("fire") && cooling > 0 });
     renderCond();
@@ -664,7 +702,7 @@
     $("btnHint").disabled = busy || S.pt < HINT_COST;
     $("log").innerHTML = S.log.map((l) => `<p>${l}</p>`).join("");
 
-    const f = [["all", "すべて"], ["material", "素材"], ["compound", "化合物"], ["tool", "道具"], ["element", "元素"], ["concept", "概念"]];
+    const f = chipList();
     $("chips").innerHTML = f.map(([k, n]) => `<button data-f="${k}" class="${filter === k ? "on" : ""}">${n}</button>`).join("");
     const list = order.filter((i) => has(i) && (filter === "all" || items[i].type === filter));
     $("inv").innerHTML = list.map((id) => {
@@ -1046,7 +1084,7 @@
       if (t.dataset.amt) { if (busy) return; const [i, dlt] = t.dataset.amt.split(":").map(Number); if (dlt < 0 && amts[i] <= 1) { slots.splice(i, 1); amts.splice(i, 1); } else amts[i] = Math.min(MAX_AMT, amts[i] + dlt); renderLab(); }
       else if (t.dataset.id) addSlot(t.dataset.id);
       else if (t.dataset.slot !== undefined) { if (!busy) { slots.splice(+t.dataset.slot, 1); amts.splice(+t.dataset.slot, 1); renderLab(); } }
-      else if (t.dataset.f) { filter = t.dataset.f; renderLab(); }
+      else if (t.dataset.f) { if (chipNoClick) return; filter = t.dataset.f; renderLab(); scrollToInv(); }
       else if (t.dataset.tech) buyTech(t.dataset.tech);
       else if (t.dataset.techg) buyTech(t.dataset.techg, true);
       else if (t.dataset.temp) { const l = +t.dataset.temp; if (busy) return; if (tempUnlocked(l)) { temp = l; renderCond(); } else toast("今の設備では、この温度は出せない"); }
