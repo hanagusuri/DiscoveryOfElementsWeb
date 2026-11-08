@@ -45,7 +45,7 @@
   function text(e) {
     const names = (e.ids || [e.id]).filter(Boolean).map((x) => emo(x) + nm(x)).join("、");
     switch (e.t) {
-      case "discover": return `${names} を作った。${how(e)}${e.gain ? ` 知識+${e.gain}` : ""}`;
+      case "discover": return `${names} を${D().EXTRACTS && D().EXTRACTS[e.key] ? "取り出した" : "作った"}。${how(e)}${e.gain ? ` 知識+${e.gain}` : ""}`;
       case "distill": return `蒸留で、${names} を、取り出した。${e.gain ? ` 知識+${e.gain}` : ""}`;
       case "concept": return `「${nm(e.id)}」を、理解した。`;
       case "tech": return `技術「${esc(e.name)}」の研究を、終えた。${e.grants ? "(" + e.grants.map(nm).join("・") + " を入手)" : ""}`;

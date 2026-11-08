@@ -698,7 +698,7 @@
     const r = recipes.find((x) => x.out.includes(id));
     if (r) {
       const c = [condText(r.cond), r.ratio ? "配合 " + ratioText(r.ratio) : "", r.repeat ? "繰り返し ×" + r.repeat : "", r.equip ? "設備: " + r.equip.map((e) => items[e].name).join("・") : "", r.elec ? "電気: " + elecText(r.elec) : ""].filter(Boolean).join("・");
-      return "作り方: " + r.inp.map((x) => items[x].name).join(" + ") + (c ? " [" + c + "]" : "");
+      return howLabel(r.key) + ": " + r.inp.map((x) => items[x].name).join(" + ") + (c ? " [" + c + "]" : "");
     }
     for (const [mix, d] of Object.entries(DIST)) {
       const k = d.comps.findIndex((c) => c.out === id);
@@ -716,10 +716,17 @@
     return card ? `<div class="why use"><b>🏭 第${era}期の用途</b><p>${u.now}</p>${past}</div>` : `<p class="use">🏭 第${era}期の用途: ${u.now}</p>${past}`;
   }
 
+  // 合成ではなく、抽出・精製・分離のレシピか
+  const extractOf = (key) => (DATA.EXTRACTS && DATA.EXTRACTS[key]) || null;
+  const howLabel = (key) => (extractOf(key) ? "取り出し方" : "作り方");
+  function extractHtml(key) {
+    const e = extractOf(key); if (!e || !items[e.out] || !items[e.from]) return "";
+    return `<p class="use">🧺 ${e.kind}: ${items[e.out].name}は、新しく作られるのではなく、もともと${items[e.from].name}に含まれていて、それを取り出す操作です。${e.how}</p>`;
+  }
   function whyHtml(r, open) {
     if (!DATA.explain) return "";
     const x = DATA.explain(r);
-    return `<div class="why"><b>🔬 なぜ起こるのか</b><p>${x.why}</p>${x.conds.length ? `<ul>${x.conds.map((c) => `<li>${c}</li>`).join("")}</ul>` : ""}</div>`;
+    return `<div class="why"><b>🔬 なぜ起こるのか</b>${extractHtml(r.key)}<p>${x.why}</p>${x.conds.length ? `<ul>${x.conds.map((c) => `<li>${c}</li>`).join("")}</ul>` : ""}</div>`;
   }
 
   function renderCodex() {
@@ -737,7 +744,7 @@
         if (!has(id) && !S.cheat) return "";
         const rc = S.how[id] && recipeByKey[S.how[id]];
         const ct = rc && [condText(rc.cond), rc.ratio ? "配合 " + ratioText(rc.ratio) : "", rc.repeat ? "繰り返し ×" + rc.repeat : "", rc.equip ? "設備: " + rc.equip.map((e) => items[e].name).join("・") : "", rc.elec ? "電気: " + elecText(rc.elec) : ""].filter(Boolean).join("・");
-        const how = S.cheat ? `<p class="how">${sourceText(id)}</p>` : S.how[id] ? `<p class="how">作り方: ${S.how[id].split("+").map((x) => items[x].name).join(" + ")}${ct ? " [" + ct + "]" : ""}</p>` : "";
+        const how = S.cheat ? `<p class="how">${sourceText(id)}</p>` : S.how[id] ? `<p class="how">${howLabel(S.how[id])}: ${S.how[id].split("+").map((x) => items[x].name).join(" + ")}${ct ? " [" + ct + "]" : ""}</p>` : "";
         return `<div class="cx ${has(id) ? "" : "unk2"}" id="cx-${id}"><div class="e">${it.emoji}</div><div><h4>${it.name}${has(id) ? "" : "(未発見)"} <small style="color:var(--dim)">${TYPE_LABEL[it.type]}${it.sym ? " · " + it.sym : ""}${DATA.FORMULAS[id] ? " · " + DATA.FORMULAS[id] : ""}</small></h4><p>${it.desc}</p>${usesHtml(id)}${it.note ? `<p class="how">${it.note}</p>` : ""}${PH[id] && (has(id) || S.cheat) ? `<p class="how">${phaseText(id)}</p>` : ""}${it.sym && DATA.POTENTIAL[it.sym] !== undefined && (S.cheat || has("activity_series")) && (has(id) || S.cheat) ? `<p class="how">標準電極電位 E° ${DATA.POTENTIAL[it.sym] > 0 ? "+" : ""}${DATA.POTENTIAL[it.sym]} V</p>` : ""}${how}${rc && DATA.explain ? `<details class="whyd"><summary>なぜ起こる?</summary>${whyHtml(rc)}</details>` : ""}</div></div>`;
       }).join("");
       if (unk && !S.cheat) html += `<div class="cx unk"><div class="e">❔</div><div><h4>未発見 ${unk} 件</h4><p>実験と探索で埋めよう</p></div></div>`;

@@ -27,6 +27,7 @@ require("../elements_org3.js");
 require("../elements_inorg2.js");
 require("../elements_adv.js");
 require("../elements_nat.js");
+require("../elements_extract.js");
 require("../elements_yield3.js");
 require("../elements_econ.js");
 require("../elements_history.js");
@@ -212,3 +213,8 @@ console.log("OK: すべてのアイテムに到達可能");
   const K = D.knowFx((x) => x === "catalyst" || x === "process_optimization"); if (!(K.yieldMul("eq", 1) > 1.2 && K.yieldMul("eq", 1) < 1.3)) errs.push("知識の効果: 収率の上乗せ");
   const hy = D.yieldOf("hydrogen+iron+nitrogen", 400, 100, true).y; if (!(Math.min(0.99, hy * K.yieldMul("eq", 100)) > hy)) errs.push("知識の効果: 収率");
   console.log(errs.length ? "追体験(第5弾)・知識の効果の不正: " + errs.join(" ") : "OK: 追体験(第5弾・" + D.REPLAYS.length + "課題)と、知識の効果(" + D.KNOW_FX.length + "種類)"); if (errs.length) process.exitCode = 1; }
+
+{ const D = require("../elements_extra.js")._D, errs = [], ids = new Set(D.ITEM_ROWS.map((r) => r[0]));
+  const rows = {}; D.RECIPE_ROWS.forEach((r) => { rows[[...r[0]].sort().join("+")] = r; });
+  Object.entries(D.EXTRACTS).forEach(([k, e]) => { const r = rows[k]; if (!r) errs.push("抽出のレシピなし: " + k); else { if (!r[1].includes(e.out)) errs.push("抽出の産物が、違う: " + k); if (!r[0].includes(e.from)) errs.push("抽出の、もとの材料が、レシピにない: " + k); } if (!ids.has(e.out) || !ids.has(e.from)) errs.push("抽出のID: " + k); });
+  console.log(errs.length ? "抽出・精製の表の不正: " + errs.join(" ") : "OK: 抽出・精製・分離のレシピ(" + Object.keys(D.EXTRACTS).length + "件)"); if (errs.length) process.exitCode = 1; }
