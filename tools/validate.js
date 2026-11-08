@@ -13,6 +13,7 @@ require("../elements_chem.js");
 require("../elements_dyn.js");
 require("../elements_yield.js");
 require("../elements_yield2.js");
+require("../elements_why.js");
 const items = {};
 for (const r of D.ITEM_ROWS) {
   if (items[r[0]]) throw new Error("duplicate item " + r[0]);

@@ -271,3 +271,5 @@ body.shake main, body.shake header#top { animation: shk .5s; }
 .labtop .log p { margin: 2px 0; }
 
 .adminlink { display: block; margin-top: 16px; padding: 10px 14px; text-align: center; border: 1px dashed var(--line); border-radius: 10px; color: var(--accent2); text-decoration: none; font-size: 13px; }
+
+.why{margin:10px 0;padding:8px 10px;border-left:3px solid var(--accent,#e8a33d);background:#ffffff0a;border-radius:6px;text-align:left;font-size:13px;line-height:1.6}.why p{margin:4px 0}.why ul{margin:4px 0 0;padding-left:18px;color:var(--dim)}.whyd summary{cursor:pointer;color:var(--accent,#e8a33d);font-size:12px}

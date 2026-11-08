@@ -701,6 +701,12 @@
     return t ? "入手: 技術「" + t.name + "」" : "";
   }
 
+  function whyHtml(r, open) {
+    if (!DATA.explain) return "";
+    const x = DATA.explain(r);
+    return `<div class="why"><b>🔬 なぜ起こるのか</b><p>${x.why}</p>${x.conds.length ? `<ul>${x.conds.map((c) => `<li>${c}</li>`).join("")}</ul>` : ""}</div>`;
+  }
+
   function renderCodex() {
     $("btnCheat").textContent = "🛠 チートモード: " + (S.cheat ? "ON(図鑑・技術を全開放)" : "OFF");
     $("btnCheat").classList.toggle("on", !!S.cheat);
@@ -717,7 +723,7 @@
         const rc = S.how[id] && recipeByKey[S.how[id]];
         const ct = rc && [condText(rc.cond), rc.ratio ? "配合 " + ratioText(rc.ratio) : "", rc.repeat ? "繰り返し ×" + rc.repeat : "", rc.equip ? "設備: " + rc.equip.map((e) => items[e].name).join("・") : "", rc.elec ? "電気: " + elecText(rc.elec) : ""].filter(Boolean).join("・");
         const how = S.cheat ? `<p class="how">${sourceText(id)}</p>` : S.how[id] ? `<p class="how">作り方: ${S.how[id].split("+").map((x) => items[x].name).join(" + ")}${ct ? " [" + ct + "]" : ""}</p>` : "";
-        return `<div class="cx ${has(id) ? "" : "unk2"}"><div class="e">${it.emoji}</div><div><h4>${it.name}${has(id) ? "" : "(未発見)"} <small style="color:var(--dim)">${TYPE_LABEL[it.type]}${it.sym ? " · " + it.sym : ""}${DATA.FORMULAS[id] ? " · " + DATA.FORMULAS[id] : ""}</small></h4><p>${it.desc}</p>${it.note ? `<p class="how">${it.note}</p>` : ""}${PH[id] && (has(id) || S.cheat) ? `<p class="how">${phaseText(id)}</p>` : ""}${it.sym && DATA.POTENTIAL[it.sym] !== undefined && (S.cheat || has("activity_series")) && (has(id) || S.cheat) ? `<p class="how">標準電極電位 E° ${DATA.POTENTIAL[it.sym] > 0 ? "+" : ""}${DATA.POTENTIAL[it.sym]} V</p>` : ""}${how}</div></div>`;
+        return `<div class="cx ${has(id) ? "" : "unk2"}"><div class="e">${it.emoji}</div><div><h4>${it.name}${has(id) ? "" : "(未発見)"} <small style="color:var(--dim)">${TYPE_LABEL[it.type]}${it.sym ? " · " + it.sym : ""}${DATA.FORMULAS[id] ? " · " + DATA.FORMULAS[id] : ""}</small></h4><p>${it.desc}</p>${it.note ? `<p class="how">${it.note}</p>` : ""}${PH[id] && (has(id) || S.cheat) ? `<p class="how">${phaseText(id)}</p>` : ""}${it.sym && DATA.POTENTIAL[it.sym] !== undefined && (S.cheat || has("activity_series")) && (has(id) || S.cheat) ? `<p class="how">標準電極電位 E° ${DATA.POTENTIAL[it.sym] > 0 ? "+" : ""}${DATA.POTENTIAL[it.sym]} V</p>` : ""}${how}${rc && DATA.explain ? `<details class="whyd"><summary>なぜ起こる?</summary>${whyHtml(rc)}</details>` : ""}</div></div>`;
       }).join("");
       if (unk && !S.cheat) html += `<div class="cx unk"><div class="e">❔</div><div><h4>未発見 ${unk} 件</h4><p>実験と探索で埋めよう</p></div></div>`;
     }
@@ -878,7 +884,7 @@
         ? `<div class="big">${items[fresh_[0]].emoji}</div><div class="kind">${TYPE_LABEL[items[fresh_[0]].type]}を発見</div><h2>${items[fresh_[0]].name}</h2>`
         : `<div class="kind">新発見</div><div class="multi">${fresh_.map((o) => `<div><div class="big">${items[o].emoji}</div>${items[o].name}</div>`).join("")}</div>`;
       const details = fresh_.map((o) => `<div class="desc"><b>${items[o].name}</b>: ${items[o].desc}</div>${items[o].note ? `<div class="note">${items[o].note}</div>` : ""}`).join("");
-      showCard(`${body}<div class="story">${r.text}</div>${details}<div class="note">知識 +${gain}</div>`, () => {
+      showCard(`${body}<div class="story">${r.text}</div>${whyHtml(r)}${details}<div class="note">知識 +${gain}</div>`, () => {
         if (newEra) toast(`新時代へ: ${ERAS[newEra].name}`);
       });
     }, 900);
