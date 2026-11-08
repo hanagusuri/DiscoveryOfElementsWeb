@@ -32,6 +32,7 @@
     if (r[6]) chips.push(`<span class="chip warn">繰り返し×${r[6]}</span>`);
     if (r[7]) chips.push(`<span class="chip eqp">設備: ${r[7].map(nm).join("・")}</span>`);
     if (r[8]) chips.push(`<span class="chip eqp">⚡${elecText(r[8])}</span>`);
+    { const g = D.REPLAY_GATES && D.REPLAY_GATES[[...r[0]].sort().join("+")]; if (g && IT[g]) chips.push(`<span class="chip warn">知識: ${IT[g].name}(追体験)</span>`); }
     const key = [...r[0]].sort().join("+"), y = D.YIELDS && D.YIELDS[key];
     if (y) chips.push(`<span class="chip ok">収率モデル:${y.kind}${y.rx ? "(" + y.rx + ")" : ""} しきい${(y.threshold * 100).toFixed(0)}%</span>`);
     return chips.join("");
@@ -426,20 +427,21 @@
   }
 
   // ---- 産業・収支 ----
-  const ec = { era: 3, eng: 0, sales: 0, sec: "", onlyProfit: true, sort: "profit", months: 60 };
+  const ec = { era: 3, eng: 0, sales: 0, sec: "", onlyProfit: true, sort: "profit", months: 60, know: false };
   function econView() {
     const EC = D.ECON; if (!EC) return "<p>elements_econ.js が読み込まれていません。</p>";
     const press = D.PRESS_LEVELS.filter((l) => !l.need || (IT[l.need] && IT[l.need].era <= ec.era)).map((l) => l.p);
-    const ctx = { era: ec.era, eng: ec.eng, sales: ec.sales, idx: () => 1, press };
+    const kn = ec.know && D.knowFx ? D.knowFx(() => true) : null;
+    const ctx = { era: ec.era, eng: ec.eng, sales: ec.sales, idx: () => 1, press, know: kn, cost: kn ? kn.indCost() : 0, yadd: kn ? kn.indYadd() : 0 };
     const ids = EC.available(ec.era);
     let rows = ids.map((id) => { const m = D.marketOf(id), p1 = EC.plan(id, 1, ctx), p3 = EC.plan(id, 3, ctx); return { id, m, p1, p3, c1: EC.buildCost(id, 1), c3: EC.buildCost(id, 3), pb: p1.profit > 0 ? EC.buildCost(id, 1) / p1.profit : Infinity, uc: EC.unitCost(id), pr: EC.price(id, ctx), dem: EC.demand(id, ec.era), yi: p1.yi }; });
     const all = rows.length;
     if (ec.sec) rows = rows.filter((r) => r.m.sec === ec.sec);
     if (ec.onlyProfit) rows = rows.filter((r) => r.p1.profit > 0);
     rows.sort((a, b) => (ec.sort === "pb" ? a.pb - b.pb : ec.sort === "cost" ? a.c1 - b.c1 : b.p1.profit - a.p1.profit));
-    const sim = EC.simulate(ec.era, ec.months, { eng: ec.eng, sales: ec.sales }), hs = sim.hist;
-    const simR = EC.simulate(ec.era, ec.months, { eng: ec.eng, sales: ec.sales, research: true }), hr = simR.hist;
-    const simA = EC.simulate(ec.era, ec.months, { eng: ec.eng, sales: ec.sales, research: true, members: true, improve: true }), ha = simA.hist;
+    const sim = EC.simulate(ec.era, ec.months, { eng: ec.eng, sales: ec.sales, know: ec.know }), hs = sim.hist;
+    const simR = EC.simulate(ec.era, ec.months, { eng: ec.eng, sales: ec.sales, research: true, know: ec.know }), hr = simR.hist;
+    const simA = EC.simulate(ec.era, ec.months, { eng: ec.eng, sales: ec.sales, research: true, members: true, improve: true, know: ec.know }), ha = simA.hist;
     const prof = ids.filter((id) => EC.plan(id, 1, ctx).profit > 0).length;
     const secSum = Object.entries(D.SECTORS).map(([k, v]) => { const L = ids.filter((id) => D.marketOf(id).sec === k); const pf = L.filter((id) => EC.plan(id, 1, ctx).profit > 0); return `<tr><td>${v.emoji}${v.name}</td><td>${L.length}</td><td>${pf.length}</td><td>${_D_mul(k)}</td></tr>`; }).join("");
     function _D_mul(k) { return "×" + D.SECTOR_ERA[k][ec.era - 1]; }
@@ -450,6 +452,7 @@
       `<label>業界 <select data-econ="sec"><option value="">すべて</option>${Object.entries(D.SECTORS).map(([k, v]) => opt(k, ec.sec, v.name)).join("")}</select></label>` +
       `<label>並び <select data-econ="sort">${opt("profit", ec.sort, "月益(大きい順)")}${opt("pb", ec.sort, "回収月数(短い順)")}${opt("cost", ec.sort, "建設費(安い順)")}</select></label>` +
       `<label>期間 <select data-econ="months">${[36, 60, 120].map((n) => opt(n, ec.months, n + "か月")).join("")}</select></label>` +
+      `<label><input type="checkbox" data-econ="know" ${ec.know ? "checked" : ""}> 知識の効果(すべて習得)を含める</label>` +
       `<label><input type="checkbox" data-econ="onlyProfit" ${ec.onlyProfit ? "checked" : ""}> 黒字のみ</label></div>`;
     h += `<div><span class="stat"><b>${all}</b>建てられる品目</span><span class="stat"><b>${prof}</b>黒字(工房)</span><span class="stat"><b>${hs[hs.length - 1].plants}</b>${ec.months}か月後の工場数</span><span class="stat"><b>${hs[hs.length - 1].net.toLocaleString()}G</b>${ec.months}か月後の月収</span><span class="stat"><b>${hr[hr.length - 1].net.toLocaleString()}G</b>②研究・特許の月収</span><span class="stat"><b>${ha[ha.length - 1].net.toLocaleString()}G</b>研究員・工程改良も含めた月収</span></div>`;
     const pts = [3, 6, 12, 24, 36, 60, 120].filter((m) => m <= hs.length);

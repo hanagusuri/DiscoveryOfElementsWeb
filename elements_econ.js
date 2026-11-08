@@ -7,11 +7,11 @@
   const BASIC = new Set(["fire", "water", "earth", "wood", "stone", "air", "steam", "ash", "sand", "seawater", "ice"]);
   const CATALYST = ["platinum", "nickel", "aluminium_chloride", "titanium_chloride", "pyrolusite", "vanadium_pentoxide"];
   const CAT_KEY = { "hydrogen+iron+nitrogen": ["iron"], "air+hydrogen+iron": ["iron"], "air+copper+methanol": ["copper"], "chloromethane+copper+silicon": ["copper"], "graphite+iron+pressure_vessel": ["iron"] };
-  const recipeCache = {};
+  const recipeCache = {}, rawCache = {};
   // 工業的な製法: 収率モデルのある(大量生産向きの)製法を優先し、なければ、最初の製法
   E.recipeOf = (id) => { if (id in recipeCache) return recipeCache[id]; const L = _D.RECIPE_ROWS.filter((r) => r[1].includes(id)); return (recipeCache[id] = L.find((r) => _D.YIELDS && _D.YIELDS[[...r[0]].sort().join("+")]) || L[0] || null); };
   const keyOf = (r) => [...r[0]].sort().join("+");
-  const dflt = (ctx) => Object.assign({ era: 4, eng: 0, sales: 0, idx: () => 1, press: [1], cap: 0, cost: 0, yadd: 0, price: 0, ovh: 0, dem: 0, imp: () => 0, patent: () => false, sp: () => 0, sc: () => 0, sdem: () => 0, pdisc: 0 }, ctx || {});
+  const dflt = (ctx) => Object.assign({ era: 4, eng: 0, sales: 0, idx: () => 1, press: [1], cap: 0, cost: 0, yadd: 0, price: 0, ovh: 0, dem: 0, imp: () => 0, patent: () => false, sp: () => 0, sc: () => 0, sdem: () => 0, pdisc: 0, know: null }, ctx || {});
 
   E.unitCost = function (id) {
     const r = E.recipeOf(id), m = _D.marketOf(id);
@@ -63,11 +63,17 @@
     const r = E.recipeOf(id); if (!r || !_D.YIELDS || !_D.yieldOf) return null;
     const key = keyOf(r), m = _D.YIELDS[key]; if (!m) return null;
     const win = (r[3] && r[3].t) || [1, 5], sealed = !!(r[3] && r[3].sealed === true);
-    let best = 0, bt = null, bp = 1;
-    for (let lv = win[0]; lv <= win[1]; lv++) for (const p of ctx.press) {
-      const y = _D.yieldOf(key, _D.TEMP_C[lv], p, sealed);
-      if (y && y.y > best) { best = y.y; bt = _D.TEMP_C[lv]; bp = p; }
+    const rk = id + "|" + ctx.press.join(","); // 圧力・温度の探索は、重いので、結果を覚えておく
+    let raw = rawCache[rk];
+    if (!raw) {
+      let b0 = 0, t0 = null, p0 = 1;
+      const temps = m.ambient ? [m.Topt || 25] : []; // 火を使わない反応(発酵など)は、槽の温度を、最適に管理できる
+      if (!m.ambient) for (let lv = win[0]; lv <= win[1]; lv++) temps.push(_D.TEMP_C[lv]);
+      for (const T of temps) for (const p of ctx.press) { const y = _D.yieldOf(key, T, p, sealed); if (y && y.y > b0) { b0 = y.y; t0 = T; p0 = p; } }
+      raw = rawCache[rk] = { best: b0, bt: t0, bp: p0 };
     }
+    let best = raw.best; const bt = raw.bt, bp = raw.bp;
+    if (ctx.know && best > 0) { const mul = ctx.know.yieldMul(m.kind, bp); const ny = Math.min(Math.max(best, 0.99), best * mul); if (ny > best) best = ny; } // 知識の効果
     return { y: best, thr: m.threshold, yf: Math.max(0.05, 1 - Math.pow(1 - best, 3)), temp: bt, press: bp, what: m.what, low: best < m.threshold };
   };
   E.plan = function (id, lv, ctx) {
@@ -86,19 +92,21 @@
     return _D.ITEM_ROWS.map((r) => r[0]).filter((id) => {
       const m = _D.marketOf(id); if (!m || !T()[id] || T()[id].era > era) return false;
       if (E.demand(id, era) <= 0) return false;
-      return E.needs(id).every((n) => !T()[n] || T()[n].era <= era);
+      if (!E.needs(id).every((n) => !T()[n] || T()[n].era <= era)) return false;
+      return !(_D.plantNeeds ? _D.plantNeeds(id) : []).some((k) => T()[k] && T()[k].era > era);
     });
   };
   // opts.research: 研究所・産業技術・特許にも、自動で投資するプレイヤー(知識ポイントは、毎月 opts.ptRate + 研究所の分、増える)
   E.simulate = function (era, months, opts) {
-    opts = Object.assign({ gold: _D.GOLD_START, staffCost: 0, eng: 0, sales: 0, disc: 4, research: false, members: false, improve: false, ptRate: 10 }, opts || {});
+    opts = Object.assign({ gold: _D.GOLD_START, staffCost: 0, eng: 0, sales: 0, disc: 4, research: false, members: false, improve: false, ptRate: 10, know: false }, opts || {});
+    const knowObj = opts.know && _D.knowFx ? _D.knowFx(opts.know === true ? () => true : (x) => opts.know.includes(x)) : null; // 理解した知識の効果
     const press = _D.PRESS_LEVELS.filter((l) => !l.need || (T()[l.need] && T()[l.need].era <= era)).map((l) => l.p);
     const techs = {}, patents = {}, members = {}, improve = {}; let lab = 1, pt = 0;
     const MS = () => (_D.MEMBERS || []).filter((m) => members[m.id]);
     const mf = (k) => MS().reduce((s_, m) => s_ + (typeof m.fx[k] === "number" ? m.fx[k] : 0), 0);
     const ms = (k, sec) => MS().reduce((s_, m) => s_ + ((m.fx[k] || {})[sec] || 0), 0);
     const fx = (k) => (_D.IND_TECHS || []).reduce((a, t) => a + (techs[t.id] && t.fx[k] ? t.fx[k] : 0), 0);
-    const mk = () => ({ era, eng: opts.eng, sales: opts.sales, idx: () => 1, press, cap: fx("cap") + mf("cap"), cost: fx("cost"), yadd: fx("yadd") + mf("yadd"), price: fx("price"), ovh: Math.min(0.8, fx("ovh") + mf("ovh")), dem: fx("dem"), patent: (id) => !!patents[id], imp: (id) => improve[id] || 0, sp: (sec) => ms("sp", sec), sc: (sec) => ms("sc", sec), pdisc: Math.min(0.8, mf("pdisc")) });
+    const mk = () => ({ era, eng: opts.eng, sales: opts.sales, idx: () => 1, press, cap: fx("cap") + mf("cap"), cost: fx("cost") + (knowObj ? knowObj.indCost() : 0), yadd: fx("yadd") + mf("yadd") + (knowObj ? knowObj.indYadd() : 0), know: knowObj, price: fx("price"), ovh: Math.min(0.8, fx("ovh") + mf("ovh")), dem: fx("dem"), patent: (id) => !!patents[id], imp: (id) => improve[id] || 0, sp: (sec) => ms("sp", sec), sc: (sec) => ms("sc", sec), pdisc: Math.min(0.8, mf("pdisc")) });
     let ctx = mk();
     const ids = E.available(era), built = {}, hist = [];
     const order = ids.slice().sort((x, y) => (_D.marketOf(x).price - _D.marketOf(y).price)); let di = 0; // 毎月、新しい物質を発見して、謝礼を得る

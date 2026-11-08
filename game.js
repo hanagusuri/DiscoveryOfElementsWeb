@@ -52,8 +52,9 @@
   }
   // 設備の性能
   const sum = (tbl) => Object.entries(tbl).reduce((a, [id, v]) => a + (has(id) ? v : 0), 0);
-  const drift = () => Math.max(0.02, DATA.DRIFT_BASE - sum(DATA.EQUIP_STAB));
-  const efficiency = () => 1 + sum(DATA.EQUIP_EFF);
+  const KNOW = () => (DATA.knowFx ? DATA.knowFx(has) : null); // 理解した知識の効果(収率・事故・火力の揺らぎ・分離の効率)
+  const drift = () => Math.max(0.02, (DATA.DRIFT_BASE - sum(DATA.EQUIP_STAB)) * (KNOW() ? KNOW().driftMul() : 1));
+  const efficiency = () => 1 + sum(DATA.EQUIP_EFF) + (KNOW() ? KNOW().effAdd() : 0);
   const maxTemp = () => { let m = 1; TEMPS.forEach((t, i) => { if (t && tempUnlocked(i)) m = Math.max(m, i); }); return m; };
   const fmt = (x) => String(+x.toFixed(2));
 
@@ -113,6 +114,7 @@
   function grantConcept(cid) {
     if (has(cid)) return 0;
     S.have.push(cid); S.seen.push(cid); S.pt += ptOf(cid);
+    if (window.JOURNAL) JOURNAL.add(S, { t: "concept", id: cid });
     toast("新しい知識: " + items[cid].name);
     return ptOf(cid);
   }
@@ -457,7 +459,7 @@
     const D0 = DIST[mix], st = stillOf(mix), c = D0.comps[idx];
     st.left = st.left.filter((i) => i !== idx); st.got++;
     let gain = 0, isNew = false;
-    if (c.out && !has(c.out)) { S.have.push(c.out); S.seen.push(c.out); S.pt += ptOf(c.out); gain += ptOf(c.out); isNew = true; }
+    if (c.out && !has(c.out)) { S.have.push(c.out); S.seen.push(c.out); S.pt += ptOf(c.out); gain += ptOf(c.out); isNew = true; if (window.JOURNAL) JOURNAL.add(S, { t: "distill", ids: [c.out], gain: ptOf(c.out) }); }
     gain += grantConcept("distillation");
     if (st.got >= 2) gain += grantConcept("fractional_distillation");
     if (!st.left.length) S.still = null;
@@ -546,7 +548,7 @@
     for (const kd of kinds) {
       const { m, down } = mitigation(kd), H = HZ[kd];
       if (m < 0.5) ok = false;
-      if (Math.random() < H.p * (1 - m) * scale) {
+      if (Math.random() < H.p * (1 - m) * scale * (KNOW() ? KNOW().accMul(kd) : 1)) {
         const sev = Math.max(1, H.sev - down);
         if (!worst || sev > worst.sev) worst = { kind: kd, sev };
       }
@@ -561,6 +563,7 @@
     const before = S.pt;
     S.pt = Math.max(0, S.pt - lost);
     S.acc[kind] = (S.acc[kind] || 0) + 1;
+    if (window.JOURNAL) JOURNAL.add(S, { t: "accident", text: (H && (H.name || H.label) ? H.name || H.label : kind) + "(" + names + ")", lost });
     const nBreak = sev === 3 ? 2 : sev === 2 ? 1 : kind === "thermal" || kind === "vacuum" ? 1 : 0;
     const broken = [];
     for (let i = 0; i < nBreak; i++) {
@@ -685,7 +688,9 @@
       return `<div class="tech ${st}"><h3><span>${t.name}</span><span>${free ? "無料" : t.cost + "pt"}</span></h3><p>${t.desc}</p><div class="gr">入手: ${gr}</div>` +
         (st === "done" ? `<button disabled>完了</button>` : (window.IND && st_ok(t) ? `<button data-techg="${t.id}" class="${IND.canPay(IND.techGold(t)) ? "primary" : ""}">資金で調達(${IND.easy() ? "無料" : IND.techGold(t) + "G"}・約${Math.max(7, t.cost * 3)}日)</button> ` : "") + `<button class="${free || S.pt >= t.cost ? "primary" : ""}" data-tech="${t.id}" ${!free && S.pt < t.cost ? "disabled" : ""}>研究する${free && techState(t) === "locked" ? "(前提を無視)" : ""}</button>`) + `</div>`;
     });
-    $("techList").innerHTML = renderEquip() + "<h3 class='sec'>研究</h3>" + rows.join("") + (hidden ? `<p class="lead">🔒 まだ見えていない技術があと ${hidden} 個。新しい発見が道を拓く。</p>` : `<p class="lead">すべての技術を開放した!</p>`);
+    const rpNeed = TECHS.filter((t) => !S.techs.includes(t.id) && t.req.some((r) => !has(r) && DATA.REPLAY_GRANTS && Object.values(DATA.REPLAY_GRANTS).includes(r)) && t.req.every((r) => has(r) || Object.values(DATA.REPLAY_GRANTS || {}).includes(r)));
+    const rpHint = rpNeed.length ? `<p class="lead">🔬 化学タブの「追体験」で得る知識が必要な研究: ${rpNeed.map((t) => `「${t.name}」(${t.req.filter((r) => !has(r)).map((r) => items[r].name).join("・")})`).join("、")}</p>` : "";
+    $("techList").innerHTML = rpHint + renderEquip() + "<h3 class='sec'>研究</h3>" + rows.join("") + (hidden ? `<p class="lead">🔒 まだ見えていない技術があと ${hidden} 個。新しい発見が道を拓く。</p>` : `<p class="lead">すべての技術を開放した!</p>`);
   }
 
   // 入手方法(チート用): 実験レシピ or 技術
@@ -733,7 +738,7 @@
         const rc = S.how[id] && recipeByKey[S.how[id]];
         const ct = rc && [condText(rc.cond), rc.ratio ? "配合 " + ratioText(rc.ratio) : "", rc.repeat ? "繰り返し ×" + rc.repeat : "", rc.equip ? "設備: " + rc.equip.map((e) => items[e].name).join("・") : "", rc.elec ? "電気: " + elecText(rc.elec) : ""].filter(Boolean).join("・");
         const how = S.cheat ? `<p class="how">${sourceText(id)}</p>` : S.how[id] ? `<p class="how">作り方: ${S.how[id].split("+").map((x) => items[x].name).join(" + ")}${ct ? " [" + ct + "]" : ""}</p>` : "";
-        return `<div class="cx ${has(id) ? "" : "unk2"}"><div class="e">${it.emoji}</div><div><h4>${it.name}${has(id) ? "" : "(未発見)"} <small style="color:var(--dim)">${TYPE_LABEL[it.type]}${it.sym ? " · " + it.sym : ""}${DATA.FORMULAS[id] ? " · " + DATA.FORMULAS[id] : ""}</small></h4><p>${it.desc}</p>${usesHtml(id)}${it.note ? `<p class="how">${it.note}</p>` : ""}${PH[id] && (has(id) || S.cheat) ? `<p class="how">${phaseText(id)}</p>` : ""}${it.sym && DATA.POTENTIAL[it.sym] !== undefined && (S.cheat || has("activity_series")) && (has(id) || S.cheat) ? `<p class="how">標準電極電位 E° ${DATA.POTENTIAL[it.sym] > 0 ? "+" : ""}${DATA.POTENTIAL[it.sym]} V</p>` : ""}${how}${rc && DATA.explain ? `<details class="whyd"><summary>なぜ起こる?</summary>${whyHtml(rc)}</details>` : ""}</div></div>`;
+        return `<div class="cx ${has(id) ? "" : "unk2"}" id="cx-${id}"><div class="e">${it.emoji}</div><div><h4>${it.name}${has(id) ? "" : "(未発見)"} <small style="color:var(--dim)">${TYPE_LABEL[it.type]}${it.sym ? " · " + it.sym : ""}${DATA.FORMULAS[id] ? " · " + DATA.FORMULAS[id] : ""}</small></h4><p>${it.desc}</p>${usesHtml(id)}${it.note ? `<p class="how">${it.note}</p>` : ""}${PH[id] && (has(id) || S.cheat) ? `<p class="how">${phaseText(id)}</p>` : ""}${it.sym && DATA.POTENTIAL[it.sym] !== undefined && (S.cheat || has("activity_series")) && (has(id) || S.cheat) ? `<p class="how">標準電極電位 E° ${DATA.POTENTIAL[it.sym] > 0 ? "+" : ""}${DATA.POTENTIAL[it.sym]} V</p>` : ""}${how}${rc && DATA.explain ? `<details class="whyd"><summary>なぜ起こる?</summary>${whyHtml(rc)}</details>` : ""}</div></div>`;
       }).join("");
       if (unk && !S.cheat) html += `<div class="cx unk"><div class="e">❔</div><div><h4>未発見 ${unk} 件</h4><p>実験と探索で埋めよう</p></div></div>`;
     }
@@ -798,7 +803,7 @@
 
   function checkEra() {
     const era = currentEra();
-    if (era > S.maxEra) { S.maxEra = era; save(); return era; }
+    if (era > S.maxEra) { S.maxEra = era; if (window.JOURNAL) JOURNAL.add(S, { t: "era", eraNo: era, name: ERAS[era].name }); save(); return era; }
     return 0;
   }
 
@@ -812,6 +817,7 @@
     busy = true; $("bench").classList.add("working"); renderLab();
     setTimeout(() => {
       $("bench").classList.remove("working"); busy = false;
+      S.nexp = (S.nexp || 0) + 1;
       if (window.IND) IND.advance(1); // 実験1回で1日が経つ
       const dm = distillMix();
       if (dm) { runDistill(dm, names); return; }
@@ -826,6 +832,12 @@
         const mr = recipes.find((x) => x.miss && x.inp.length === slots.length + 1 && slots.every((s) => x.inp.includes(s)));
         if (mr) { say(`${names} … ${mr.miss}`); renderLab(); return; }
         say(near ? `${names} … 何かが起きそうだ。もう一つ何かが足りない気がする。` : `${names} … 何も起こらなかった。`);
+        renderLab(); return;
+      }
+      const gate = DATA.REPLAY_GATES && DATA.REPLAY_GATES[r.key];
+      if (gate && !has(gate) && !S.cheat) { // 追体験で、得る知識が、必要な実験
+        const rp_ = DATA.REPLAYS.find((x) => DATA.REPLAY_GRANTS[x.id] === gate);
+        say(`${names} … 何かが起きそうだが、まだ理論が足りない。化学タブの「追体験」で、${rp_ ? "「" + rp_.title + "」" : "関連する実験"}のデータを取り、「${items[gate].name}」を、理解しよう。`);
         renderLab(); return;
       }
       const lack = (r.equip || []).find((e) => !has(e));
@@ -853,10 +865,11 @@
       }
       // 収率: 化学平衡と反応速度で、成功・不成功と収量が決まる
       let yNote = "";
-      const ym = DATA.yieldOf ? DATA.yieldOf(r.key, TEMP_C[tEff], press, sealed) : null;
+      const ym = DATA.yieldOf ? DATA.yieldOf(r.key, (DATA.YIELDS[r.key] && DATA.YIELDS[r.key].ambient) ? COOL_C[cooling] : TEMP_C[tEff], press, sealed) : null; // 火を使わない反応は、実験室の温度(冷却の段階)で決まる
+      if (ym && KNOW()) { const mul = KNOW().yieldMul((DATA.YIELDS[r.key] || {}).kind, press); if (mul > 1) { const ny = Math.min(Math.max(ym.y, 0.99), ym.y * mul); if (ny > ym.y) { ym.y = ny; ym.kmul = mul; } } } // 知識の効果で、収率が上がる
       if (ym) {
         if (ym.y < ym.threshold) { say(`${names} … ${ym.what}はほとんど得られなかった(収率 ${(ym.y * 100).toFixed(1)}%)。${ym.why}`); renderLab(); return; }
-        yNote = ` 📊収率${(ym.y * 100).toFixed(0)}%`;
+        yNote = ` 📊収率${(ym.y * 100).toFixed(0)}%${ym.kmul ? `(🧠知識の効果 ×${ym.kmul.toFixed(2)})` : ""}`;
         grantConcept("yield");
         S.bestY = S.bestY || {};
         const prev = S.bestY[r.key] || 0; let bonus = 0;
@@ -888,14 +901,17 @@
       }
       S.pt += gain;
       if (window.IND) IND.onDiscover(fresh_);
+      if (window.JOURNAL) JOURNAL.add(S, { t: "discover", ids: fresh_.slice(), key: r.key, gain, temp: r.cond ? TEMPS[tEff].name : "", sealed: !!sealed, press });
       say(`発見: ${fresh_.map((o) => items[o].name).join("、")} (+${gain}pt)${eqNote}`);
       if (window.FX) FX.discover(fresh_.map((o) => items[o].type), gain);
       const newEra = checkEra();
+      const newEp = window.HIST ? HIST.newEpisodes() : [];
+      if (newEp.length) setTimeout(() => toast(`📖 歴史の転換点が読める: ${newEp[0].title}`), 1800);
       save(); slots = []; amts = []; render();
       const body = fresh_.length === 1
         ? `<div class="big">${items[fresh_[0]].emoji}</div><div class="kind">${TYPE_LABEL[items[fresh_[0]].type]}を発見</div><h2>${items[fresh_[0]].name}</h2>`
         : `<div class="kind">新発見</div><div class="multi">${fresh_.map((o) => `<div><div class="big">${items[o].emoji}</div>${items[o].name}</div>`).join("")}</div>`;
-      const details = fresh_.map((o) => `<div class="desc"><b>${items[o].name}</b>: ${items[o].desc}</div>${usesHtml(o, true)}${items[o].note ? `<div class="note">${items[o].note}</div>` : ""}`).join("");
+      const details = fresh_.map((o) => `<div class="desc"><b>${items[o].name}</b>: ${items[o].desc}</div>${window.HIST ? HIST.cardHtml(o) : ""}${usesHtml(o, true)}${items[o].note ? `<div class="note">${items[o].note}</div>` : ""}`).join("");
       showCard(`${body}<div class="story">${r.text}</div>${whyHtml(r)}${details}<div class="note">知識 +${gain}</div>`, () => {
         if (newEra) toast(`新時代へ: ${ERAS[newEra].name}`);
       });
@@ -906,6 +922,7 @@
   // 実験を実行するために足りないものを調べる(名前は出さず、種類だけを返す)
   function recipeBlocks(r) {
     const blocks = [];
+    { const g = DATA.REPLAY_GATES && DATA.REPLAY_GATES[r.key]; if (g && !has(g)) blocks.push("この実験には、まだ理論の理解が足りないようだ。化学タブの「追体験」で、歴史上の実験を、再現してみよう。"); }
     (r.equip || []).forEach((e) => { if (!has(e)) blocks.push(DATA.EQUIP_WHY[e] || "この実験には、まだ持っていない設備が要りそうだ。"); });
     if (r.cond) {
       const [lo, hi] = r.cond.t;
@@ -925,7 +942,7 @@
       if (!okEl(r.elec.an) || !okEl(r.elec.ca)) blocks.push("電極に使う素材が足りないようだ。");
     }
     const ym = DATA.YIELDS && DATA.YIELDS[r.key];
-    if (ym && !blocks.length) { // 収率の条件(圧力・温度)をまだ満たせない
+    if (ym && !ym.ambient && !blocks.length) { // 収率の条件(圧力・温度)をまだ満たせない
       const lo = r.cond ? r.cond.t[0] : 1, hi = r.cond ? r.cond.t[1] : 5;
       const okNow = (allP) => { for (let l = lo; l <= hi; l++) { if (!allP && !tempUnlocked(l)) continue; for (const pl of DATA.PRESS_LEVELS) { if (!allP && pl.need && !has(pl.need)) continue; const y = DATA.yieldOf(r.key, TEMP_C[l], pl.p, r.cond && r.cond.sealed === true); if (y && y.y >= y.threshold) return true; } } return false; };
       if (!okNow(false) && okNow(true)) blocks.push("今の設備では、この反応を進める圧力や温度が足りなそうだ。もっと強力な装置を考えよう。");
@@ -988,6 +1005,7 @@
     if (!S.cheat) S.pt -= t.cost;
     }
     S.techs.push(id);
+    if (window.JOURNAL) JOURNAL.add(S, { t: "tech", name: t.name, grants: t.grants });
     t.grants.forEach((g) => { if (!has(g)) S.have.push(g); });
     say(`研究完了: ${t.name} → ${t.grants.map((g) => items[g].name).join("、")} を入手`);
     const newEra = checkEra();
@@ -1048,7 +1066,18 @@
   $("btnReset").onclick = () => { if (confirm("セーブデータをすべて消去して、最初の状態からやり直しますか?" + String.fromCharCode(10) + "(チートモードもOFFに戻ります。音や演出の設定は残ります)")) { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} location.reload(); } };
 
   S.maxEra = currentEra(); // 旧セーブの時代表示を、新しい判定に合わせる
-  window.EOD = { S: () => S, has, items, order, ptOf, grantConcept, save, render, toast, say, DATA, MolViz, showCard };
+  // 画面の移動: タブ、化学タブのサブタブ(名前)、強調する要素の id
+  function go(tab, subName, focusId) {
+    document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.tab === tab));
+    ["lab", "tech", "table", "mol", "codex", "ind"].forEach((n) => { const e = $("tab-" + n); if (e) e.hidden = n !== tab; });
+    if (tab === "mol" && subName && window.EODX) { const i = EODX.subs.indexOf(subName); if (i >= 0) molSub = i + 3; }
+    render();
+    setTimeout(() => {
+      const e = focusId && document.getElementById(focusId);
+      if (e) { e.scrollIntoView({ block: "center" }); e.classList.add("hilite"); setTimeout(() => e.classList.remove("hilite"), 2600); } else window.scrollTo(0, 0);
+    }, 60);
+  }
+  window.EOD = { go, S: () => S, has, items, order, ptOf, grantConcept, save, render, toast, say, DATA, MolViz, showCard };
   if (window.EODX) EODX.init(window.EOD);
   render();
   if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(() => {});

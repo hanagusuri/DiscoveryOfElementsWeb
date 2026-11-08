@@ -44,7 +44,8 @@
   const effSec = (k, sec) => st().effects.reduce((a, e) => a + ((e.fx[k] || {})[sec] || 0), 0);
   const stockMit = () => Math.min(0.95, D.STOCK[st().stock].mit + fx("stock"));
   const ctx = () => ({ era: era(), eng: staffN("engineer"), sales: staffN("salesman"), idx: secIdx, press: pressList(),
-    cap: fx("cap") + mfx("cap") + effSum("cap"), cost: fx("cost") - Math.max(0, effSum("cost")) * (1 - stockMit()), yadd: fx("yadd") + mfx("yadd"), price: fx("price") + effSum("price"),
+    know: D.knowFx ? D.knowFx(E.has) : null,
+    cap: fx("cap") + mfx("cap") + effSum("cap"), cost: fx("cost") + (D.knowFx ? D.knowFx(E.has).indCost() : 0) - Math.max(0, effSum("cost")) * (1 - stockMit()), yadd: fx("yadd") + mfx("yadd") + (D.knowFx ? D.knowFx(E.has).indYadd() : 0), price: fx("price") + effSum("price"),
     ovh: Math.min(0.8, fx("ovh") + mfx("ovh")), dem: fx("dem") + effSum("dem"), imp: (id) => st().improve[id] || 0, patent: (id) => !!st().patents[id],
     sp: (sec) => msec("sp", sec) + effSec("sp", sec), sc: (sec) => msec("sc", sec) + effSec("sc", sec), sdem: () => 0, pdisc: Math.min(0.8, mfx("pdisc")) });
   const lab = () => D.LAB_LV[st().lab];
@@ -55,6 +56,7 @@
   const unitCost = (id) => EC.unitCost(id);
   const needs = (id) => EC.needs(id);
   const lack = (id) => needs(id).filter((n) => !E.has(n));
+  const kneed = (id) => { const c = D.plantNeeds ? D.plantNeeds(id).find((k) => !E.has(k)) : null; return c || null; }; // 追体験で得る知識が、必要な工場
   const buildCost = (id, lv) => EC.buildCost(id, lv);
   const upkeep = (id, lv) => EC.upkeep(id, lv);
   const capOf = (lv) => EC.cap(lv, ctx());
@@ -96,7 +98,7 @@
     rollEvents(rep, down);
     const c = ctx();
     const sf = Math.min(0.9, fx("safety") + mfx("safety"));
-    const safety = 0.03 / (1 + 0.5 * staffN("safety")) * (1 - sf);
+    const safety = 0.03 / (1 + 0.5 * staffN("safety")) * (1 - sf) * (D.knowFx ? D.knowFx(E.has).indAcc() : 1);
     Object.entries(s.plants).forEach(([id, lv]) => {
       if (down[id]) { rep.lines.push({ id, note: `${down[id]}で停止`, profit: 0 }); return; }
       if (Math.random() < safety) {
@@ -157,10 +159,11 @@
   // ---- 操作 ----
   function build(id, lv) {
     const s = st(), cur = s.plants[id] || 0;
-    if (lv <= cur || lack(id).length) return;
+    if (lv <= cur || lack(id).length || kneed(id)) return;
     const c = buildCost(id, lv) - (cur ? buildCost(id, cur) : 0);
     if (!canPay(c)) { E.toast("資金が足りない"); return; }
     pay(c); s.plants[id] = lv;
+    if (window.JOURNAL) JOURNAL.add(S(), { t: "industry", text: `${items[id].emoji}${nm(id)}の${D.PLANT_LV[lv].name}を${cur ? "拡張" : "建設"}した。` });
     E.say(`🏭 ${nm(id)}の${D.PLANT_LV[lv].name}を${cur ? "拡張" : "建設"}した(${easy() ? "無料" : fmt(c) + "G"})`);
     E.save(); E.render();
   }
@@ -175,19 +178,19 @@
   function labUp() {
     const s = st(), n = s.lab + 1, L = D.LAB_LV[n]; if (!L || (S().maxEra || 1) < L.era) return;
     if (!canPay(L.gold) || S().pt < L.pt) { E.toast("資金か知識が足りない"); return; }
-    pay(L.gold); S().pt -= L.pt; s.lab = n; E.say("🔬 研究所を「" + L.name + "」に拡張した"); E.save(); E.render();
+    pay(L.gold); S().pt -= L.pt; s.lab = n; if (window.JOURNAL) JOURNAL.add(S(), { t: "industry", text: "研究所を、「" + L.name + "」に、拡張した。" }); E.say("🔬 研究所を「" + L.name + "」に拡張した"); E.save(); E.render();
   }
-  const techOk = (t) => !st().itech[t.id] && (S().maxEra || 1) >= t.era && (t.req || []).every((q) => st().itech[q]);
+  const techOk = (t) => !st().itech[t.id] && (S().maxEra || 1) >= t.era && (t.req || []).every((q) => st().itech[q]) && (t.need || []).every((q) => E.has(q));
   function itechBuy(id) {
     const t = D.IND_TECHS.find((x) => x.id === id); if (!t || !techOk(t)) return;
     if (!canPay(t.gold) || S().pt < t.pt) { E.toast("資金か知識が足りない"); return; }
-    pay(t.gold); S().pt -= t.pt; st().itech[id] = 1; E.say("🏭 産業技術を確立した: " + t.name); E.save(); E.render();
+    pay(t.gold); S().pt -= t.pt; st().itech[id] = 1; if (window.JOURNAL) JOURNAL.add(S(), { t: "industry", text: "産業技術「" + t.name + "」を、確立した。" }); E.say("🏭 産業技術を確立した: " + t.name); E.save(); E.render();
   }
   function patentBuy(id) {
     const s = st(); if (s.patents[id] || !E.has(id) || !D.sellable(id) || Object.keys(s.patents).length >= patentLimit()) return;
     const c = D.ECON.patentCost(id, ctx());
     if (!canPay(c)) { E.toast("資金が足りない"); return; }
-    pay(c); s.patents[id] = 1; E.say("📜 " + nm(id) + "の製法特許を取得した"); E.save(); E.render();
+    pay(c); s.patents[id] = 1; if (window.JOURNAL) JOURNAL.add(S(), { t: "industry", text: items[id].emoji + nm(id) + "の製法特許を、取得した。" }); E.say("📜 " + nm(id) + "の製法特許を取得した"); E.save(); E.render();
   }
   const impCost = (id) => { const lv = st().improve[id] || 0; return { gold: Math.round(D.ECON.baseCost(id, 1) * D.IMPROVE.goldMul * (lv + 1) * (1 - Math.min(0.8, mfx("imp")))), pt: D.IMPROVE.ptMul * (lv + 1) * (items[id].era || 1) }; };
   function improve(id) {
@@ -229,8 +232,8 @@
       if (demand(id) <= 0) b = `<small class="warn">この時代には、需要がありません</small>`;
       else if (lv < 3) {
         const nx = lv + 1, c = buildCost(id, nx) - (lv ? buildCost(id, lv) : 0), p = plan(id, nx);
-        b = lk.length ? `<small class="warn">必要な設備: ${lk.map(nm).join("・")}</small>` :
-          `<button class="${canPay(c) ? "primary" : ""}" data-ind="build" data-id="${id}" data-lv="${nx}">${lv ? "拡張" : "建設"}: ${D.PLANT_LV[nx].name} (${easy() ? "無料" : fmt(c) + "G"}) 月益 見込 ${p.profit >= 0 ? "+" : ""}${fmt(p.profit)}G</button>`;
+        b = lk.length ? `<small class="warn">必要な設備: ${lk.map(nm).join("・")}</small>` : kneed(id) ? `<small class="warn">必要な知識: ${nm(kneed(id))}(化学タブの「追体験」で得る)</small>` :
+          `<button class="${canPay(c) ? "primary" : ""}" data-ind="build" data-rid="${id}" data-lv="${nx}">${lv ? "拡張" : "建設"}: ${D.PLANT_LV[nx].name} (${easy() ? "無料" : fmt(c) + "G"}) 月益 見込 ${p.profit >= 0 ? "+" : ""}${fmt(p.profit)}G</button>`;
       }
       return `<div class="cx"><div class="e">${items[id].emoji}</div><div><h4>${nm(id)} <small>${D.SECTORS[m.sec].name}${m.auto ? "(標準価格)" : ""}</small></h4>` +
         `<p>単価 <b>${fmt(price(id))}G</b> ／ 製造原価 ${fmt(unitCost(id))}G ／ 月の需要 ${demand(id)}単位${D.demandMul(id, m.sec, era()) > 1.4 ? " 📈" : D.demandMul(id, m.sec, era()) < 0.6 ? " 📉" : ""} ／ ${margin > 0 ? "利益あり" : '<span class="warn">赤字</span>'}</p>` +
@@ -243,18 +246,21 @@
     let h = `<div class="ind-top"><div class="stat"><small>研究所</small><b>${L.name}</b></div><div class="stat"><small>特許</small><b>${Object.keys(s.patents).length}/${patentLimit()}</b></div><div class="stat"><small>産業技術</small><b>${Object.keys(s.itech).length}/${D.IND_TECHS.length}</b></div></div>`;
     h += `<h3 class="sec">🔬 研究所</h3><div class="cx"><div class="e">🏛️</div><div><h4>${L.name} <small>毎月の知識 +${L.ptm}・人員の上限 +${L.staff}・特許 ${L.patents}件まで</small></h4><p>${L.desc}</p>` +
       (nx ? (era_ < nx.era ? `<small class="warn">第${nx.era}期から拡張できます</small>` : `<button class="${canPay(nx.gold) && S().pt >= nx.pt ? "primary" : ""}" data-ind="lab">「${nx.name}」に拡張 (${easy() ? "無料" : fmt(nx.gold) + "G"}・知識${nx.pt}pt)</button><p class="how">${nx.desc}</p>`) : "<small>最大の規模です</small>") + `</div></div>`;
+    { const fx_ = (D.KNOW_FX || []).filter((k) => k.ind), on = fx_.filter((k) => k.need.every((x) => E.has(x))), K = D.knowFx(E.has);
+      h += `<h3 class="sec">🧠 知識の効果(工場) ${on.length}/${fx_.length}</h3><p class="lead">理解した知識は、工場にも効きます。合計: 原料費 −${Math.round(K.indCost() * 100)}%・歩留まり +${Math.round(K.indYadd() * 100)}%・事故率 −${Math.round((1 - K.indAcc()) * 100)}%。さらに、収率で決まる反応の歩留まりも、上がります。</p>` +
+        fx_.map((k) => { const ok = k.need.every((x) => E.has(x)); return `<div class="cx ${ok ? "" : "unk2"}"><div class="e">${k.emoji}</div><div><h4>${k.name} <small>${ok ? "有効" : "未習得"}</small></h4><p>${D.knowIndText(k)}</p></div></div>`; }).join(""); }
     h += `<h3 class="sec">🏭 産業技術(工程の改良の研究)</h3><p class="lead">工場全体の効率を上げる研究です。資金と知識ポイントを使います。</p>`;
     h += D.IND_TECHS.map((t) => {
       const done = s.itech[t.id], locked = era_ < t.era, reqNg = (t.req || []).filter((q) => !s.itech[q]);
       return `<div class="cx ${locked ? "unk2" : ""}"><div class="e">${done ? "✅" : "⚙️"}</div><div><h4>${t.name} <small>第${t.era}期</small></h4><p>${t.desc}</p>` +
-        (done ? "<small>確立済み</small>" : locked ? `<small class="warn">第${t.era}期から研究できます</small>` : reqNg.length ? `<small class="warn">先に必要: ${reqNg.map((q) => D.IND_TECHS.find((x) => x.id === q).name).join("・")}</small>` : `<button class="${canPay(t.gold) && S().pt >= t.pt ? "primary" : ""}" data-ind="itech" data-id="${t.id}">研究する (${easy() ? "無料" : fmt(t.gold) + "G"}・知識${t.pt}pt)</button>`) + `</div></div>`;
+        (done ? "<small>確立済み</small>" : locked ? `<small class="warn">第${t.era}期から研究できます</small>` : (t.need || []).some((q) => !E.has(q)) ? `<small class="warn">必要な知識: ${(t.need || []).filter((q) => !E.has(q)).map(nm).join("・")}(化学タブの「追体験」で得る)</small>` : reqNg.length ? `<small class="warn">先に必要: ${reqNg.map((q) => D.IND_TECHS.find((x) => x.id === q).name).join("・")}</small>` : `<button class="${canPay(t.gold) && S().pt >= t.pt ? "primary" : ""}" data-ind="itech" data-rid="${t.id}">研究する (${easy() ? "無料" : fmt(t.gold) + "G"}・知識${t.pt}pt)</button>`) + `</div></div>`;
     }).join("");
     const cand = S().have.filter((id) => D.sellable(id) && D.demandMul(id, D.marketOf(id).sec, era_) > 0 && !s.patents[id]).sort((a, b) => D.ECON.royalty(b, ctx()) - D.ECON.royalty(a, ctx())).slice(0, 30);
     h += `<h3 class="sec">📜 特許</h3><p class="lead">${D.PATENT.desc}</p>`;
     h += Object.keys(s.patents).map((id) => `<div class="cx"><div class="e">${items[id].emoji}</div><div><h4>${nm(id)} <small>取得済み</small></h4><p>ライセンス収入 月 <b>${fmt(D.ECON.royalty(id, ctx()))}G</b></p></div></div>`).join("");
     h += cand.map((id) => {
       const c = D.ECON.patentCost(id, ctx()), full = Object.keys(s.patents).length >= patentLimit();
-      return `<div class="cx"><div class="e">${items[id].emoji}</div><div><h4>${nm(id)} <small>${D.SECTORS[D.marketOf(id).sec].name}</small></h4><p>ライセンス収入 見込 月 ${fmt(D.ECON.royalty(id, Object.assign(ctx(), { patent: () => true })))}G</p>${full ? '<small class="warn">特許の枠がいっぱい(研究所を拡張)</small>' : `<button class="${canPay(c) ? "primary" : ""}" data-ind="patent" data-id="${id}">特許を取得 (${easy() ? "無料" : fmt(c) + "G"})</button>`}</div></div>`;
+      return `<div class="cx"><div class="e">${items[id].emoji}</div><div><h4>${nm(id)} <small>${D.SECTORS[D.marketOf(id).sec].name}</small></h4><p>ライセンス収入 見込 月 ${fmt(D.ECON.royalty(id, Object.assign(ctx(), { patent: () => true })))}G</p>${full ? '<small class="warn">特許の枠がいっぱい(研究所を拡張)</small>' : `<button class="${canPay(c) ? "primary" : ""}" data-ind="patent" data-rid="${id}">特許を取得 (${easy() ? "無料" : fmt(c) + "G"})</button>`}</div></div>`;
     }).join("");
     return h;
   }
@@ -264,7 +270,7 @@
     if (Object.keys(s.members).length >= D.MEMBER_SLOTS[s.lab]) { E.toast("研究所の枠がいっぱい"); return; }
     if ((S().maxEra || 1) < m.era || (m.need && !E.has(m.need))) return;
     if (!canPay(m.gold) || S().pt < m.pt) { E.toast("資金か知識が足りない"); return; }
-    pay(m.gold); S().pt -= m.pt; s.members[id] = 1; E.say(`${m.emoji} ${m.name}を、研究所に迎えた`); E.save(); E.render();
+    pay(m.gold); S().pt -= m.pt; s.members[id] = 1; if (window.JOURNAL) JOURNAL.add(S(), { t: "industry", text: m.emoji + m.name + "を、研究所に迎えた。" }); E.say(`${m.emoji} ${m.name}を、研究所に迎えた`); E.save(); E.render();
   }
   function memberFire(id) { const s = st(); if (s.members[id]) { delete s.members[id]; E.save(); E.render(); } }
   function setInsure(lv) { const s = st(), I = D.INSURANCE[lv]; if (!I || (I.era && (S().maxEra || 1) < I.era)) return; s.insure = lv; E.say("🛡️ 保険を「" + I.name + "」にした"); E.save(); E.render(); }
@@ -280,7 +286,7 @@
     h += D.MEMBERS.map((m) => {
       const have = s.members[m.id], locked = era_ < m.era || (m.need && !E.has(m.need));
       return `<div class="cx ${locked ? "unk2" : ""}"><div class="e">${m.emoji}</div><div><h4>${m.name} <small>${m.field}・第${m.era}期${m.need ? "・" + nm(m.need) + "が必要" : ""} ／ 給料 ${m.salary}G/月</small></h4><p>${m.desc}</p>` +
-        (have ? `<small>在籍中</small> <button data-ind="mfire" data-id="${m.id}">去ってもらう</button>` : locked ? `<small class="warn">${era_ < m.era ? "第" + m.era + "期から" : nm(m.need) + "を発見すると"}迎えられます</small>` : `<button class="${canPay(m.gold) && S().pt >= m.pt && n < slots ? "primary" : ""}" data-ind="mhire" data-id="${m.id}" ${n >= slots ? "disabled" : ""}>迎える (${easy() ? "無料" : fmt(m.gold) + "G"}・知識${m.pt}pt)</button>`) + `</div></div>`;
+        (have ? `<small>在籍中</small> <button data-ind="mfire" data-rid="${m.id}">去ってもらう</button>` : locked ? `<small class="warn">${era_ < m.era ? "第" + m.era + "期から" : nm(m.need) + "を発見すると"}迎えられます</small>` : `<button class="${canPay(m.gold) && S().pt >= m.pt && n < slots ? "primary" : ""}" data-ind="mhire" data-rid="${m.id}" ${n >= slots ? "disabled" : ""}>迎える (${easy() ? "無料" : fmt(m.gold) + "G"}・知識${m.pt}pt)</button>`) + `</div></div>`;
     }).join("");
     return h;
   }
@@ -301,7 +307,7 @@
     if (!ids.length) return '<p class="lead">まだ工場がありません。「市場」から、発見した物質の工場を建てましょう。</p>';
     return ids.map((id) => {
       const lv = s.plants[id], p = plan(id, lv);
-      return `<div class="cx"><div class="e">${items[id].emoji}</div><div><h4>${nm(id)} <small>${D.PLANT_LV[lv].name}</small></h4><p>月産 ${p.units}単位 / 販売 ${p.sold}単位 / 収入 ${fmt(p.rev)}G / 原料 ${fmt(p.cost)}G / 維持 ${fmt(p.up)}G ⇒ <b>${p.profit >= 0 ? "+" : ""}${fmt(p.profit)}G</b></p>${(() => { const il = s.improve[id] || 0, c = impCost(id); return il >= D.IMPROVE.max ? `<small>工程の改良 Lv${il}(最大)</small>` : `<small>工程の改良 Lv${il}/${D.IMPROVE.max}</small> <button class="${canPay(c.gold) && S().pt >= c.pt ? "primary" : ""}" data-ind="improve" data-id="${id}">改良する (${easy() ? "無料" : fmt(c.gold) + "G"}・知識${c.pt}pt) 原料費−8%・歩留まり+3%</button>`; })()}</div></div>`;
+      return `<div class="cx"><div class="e">${items[id].emoji}</div><div><h4>${nm(id)} <small>${D.PLANT_LV[lv].name}</small></h4><p>月産 ${p.units}単位 / 販売 ${p.sold}単位 / 収入 ${fmt(p.rev)}G / 原料 ${fmt(p.cost)}G / 維持 ${fmt(p.up)}G ⇒ <b>${p.profit >= 0 ? "+" : ""}${fmt(p.profit)}G</b></p>${(() => { const il = s.improve[id] || 0, c = impCost(id); return il >= D.IMPROVE.max ? `<small>工程の改良 Lv${il}(最大)</small>` : `<small>工程の改良 Lv${il}/${D.IMPROVE.max}</small> <button class="${canPay(c.gold) && S().pt >= c.pt ? "primary" : ""}" data-ind="improve" data-rid="${id}">改良する (${easy() ? "無料" : fmt(c.gold) + "G"}・知識${c.pt}pt) 原料費−8%・歩留まり+3%</button>`; })()}</div></div>`;
     }).join("");
   }
   function staff() {
@@ -326,15 +332,15 @@
     else if (a === "sec") { secFilter = t.dataset.k; render(); }
     else if (a === "mode") { const s = st(); if (!s.easy || confirm("ノーマルにすると、資金が限られます(現在の資金: " + fmt(s.gold) + "G)。切り替えますか?")) { s.easy = !s.easy; E.save(); E.render(); } }
     else if (a === "wait") wait(+t.dataset.d);
-    else if (a === "build") build(t.dataset.id, +t.dataset.lv);
+    else if (a === "build") build(t.dataset.rid, +t.dataset.lv);
     else if (a === "hire") hire(t.dataset.r);
     else if (a === "fire") fire(t.dataset.r);
     else if (a === "lab") labUp();
-    else if (a === "itech") itechBuy(t.dataset.id);
-    else if (a === "patent") patentBuy(t.dataset.id);
-    else if (a === "improve") improve(t.dataset.id);
-    else if (a === "mhire") memberHire(t.dataset.id);
-    else if (a === "mfire") memberFire(t.dataset.id);
+    else if (a === "itech") itechBuy(t.dataset.rid);
+    else if (a === "patent") patentBuy(t.dataset.rid);
+    else if (a === "improve") improve(t.dataset.rid);
+    else if (a === "mhire") memberHire(t.dataset.rid);
+    else if (a === "mfire") memberFire(t.dataset.rid);
     else if (a === "insure") setInsure(+t.dataset.lv);
     else if (a === "stock") setStock(+t.dataset.lv);
     else if (a === "reserve") setReserve(+t.dataset.lv);
@@ -342,6 +348,6 @@
 
   // ---- 資金で技術(調達)を実行 ----
   const techGold = (t) => t.cost * 25;
-  window.IND = { plan, unitCost, buildCost, price, lack, advance, onDiscover, render, easy, canPay, pay, techGold, goldText, date: dateText };
+  window.IND = { day: () => st().day, plan, unitCost, buildCost, price, lack, advance, onDiscover, render, easy, canPay, pay, techGold, goldText, date: dateText };
   render();
 })();
