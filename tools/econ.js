@@ -14,3 +14,10 @@ for (const era of [1, 2, 3, 4]) {
   const s = EC.simulate(era, 36), h = s.hist;
   console.log(`  36か月の見込み(100Gから、最良の投資を繰り返す): 6か月 ${h[5].gold}G/${h[5].plants}工場, 12か月 ${h[11].gold}G, 36か月 ${h[35].gold}G/${h[35].plants}工場, 月収 ${h[35].net}G`);
 }
+// 研究・特許への自動投資あり/なしの比較(120か月)
+console.log("--- 研究・特許への投資(120か月) ---");
+for (const era of [2, 3, 4]) {
+  const a = EC.simulate(era, 120, {}).hist, b = EC.simulate(era, 120, { research: true }).hist;
+  const c = EC.simulate(era, 120, { research: true, members: true, improve: true }).hist;
+  console.log(`第${era}期: 月収 工場だけ ${a[119].net}G → 研究・特許 ${b[119].net}G → +研究員・工程改良 ${c[119].net}G (産業技術 ${c[119].techs}件・研究所Lv${c[119].lab}・特許 ${c[119].patents}件・研究員 ${c[119].members}人・改良Lv計 ${c[119].imp})`);
+}

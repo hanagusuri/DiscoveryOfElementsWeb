@@ -426,7 +426,7 @@
   }
 
   // ---- 産業・収支 ----
-  const ec = { era: 3, eng: 0, sales: 0, sec: "", onlyProfit: true, sort: "profit", months: 36 };
+  const ec = { era: 3, eng: 0, sales: 0, sec: "", onlyProfit: true, sort: "profit", months: 60 };
   function econView() {
     const EC = D.ECON; if (!EC) return "<p>elements_econ.js が読み込まれていません。</p>";
     const press = D.PRESS_LEVELS.filter((l) => !l.need || (IT[l.need] && IT[l.need].era <= ec.era)).map((l) => l.p);
@@ -438,6 +438,8 @@
     if (ec.onlyProfit) rows = rows.filter((r) => r.p1.profit > 0);
     rows.sort((a, b) => (ec.sort === "pb" ? a.pb - b.pb : ec.sort === "cost" ? a.c1 - b.c1 : b.p1.profit - a.p1.profit));
     const sim = EC.simulate(ec.era, ec.months, { eng: ec.eng, sales: ec.sales }), hs = sim.hist;
+    const simR = EC.simulate(ec.era, ec.months, { eng: ec.eng, sales: ec.sales, research: true }), hr = simR.hist;
+    const simA = EC.simulate(ec.era, ec.months, { eng: ec.eng, sales: ec.sales, research: true, members: true, improve: true }), ha = simA.hist;
     const prof = ids.filter((id) => EC.plan(id, 1, ctx).profit > 0).length;
     const secSum = Object.entries(D.SECTORS).map(([k, v]) => { const L = ids.filter((id) => D.marketOf(id).sec === k); const pf = L.filter((id) => EC.plan(id, 1, ctx).profit > 0); return `<tr><td>${v.emoji}${v.name}</td><td>${L.length}</td><td>${pf.length}</td><td>${_D_mul(k)}</td></tr>`; }).join("");
     function _D_mul(k) { return "×" + D.SECTOR_ERA[k][ec.era - 1]; }
@@ -447,10 +449,24 @@
       `<label>技師 <select data-econ="eng">${[0, 1, 2, 3, 5].map((n) => opt(n, ec.eng, n + "人")).join("")}</select></label><label>営業 <select data-econ="sales">${[0, 1, 2, 3, 5].map((n) => opt(n, ec.sales, n + "人")).join("")}</select></label>` +
       `<label>業界 <select data-econ="sec"><option value="">すべて</option>${Object.entries(D.SECTORS).map(([k, v]) => opt(k, ec.sec, v.name)).join("")}</select></label>` +
       `<label>並び <select data-econ="sort">${opt("profit", ec.sort, "月益(大きい順)")}${opt("pb", ec.sort, "回収月数(短い順)")}${opt("cost", ec.sort, "建設費(安い順)")}</select></label>` +
+      `<label>期間 <select data-econ="months">${[36, 60, 120].map((n) => opt(n, ec.months, n + "か月")).join("")}</select></label>` +
       `<label><input type="checkbox" data-econ="onlyProfit" ${ec.onlyProfit ? "checked" : ""}> 黒字のみ</label></div>`;
-    h += `<div><span class="stat"><b>${all}</b>建てられる品目</span><span class="stat"><b>${prof}</b>黒字(工房)</span><span class="stat"><b>${hs[hs.length - 1].plants}</b>${ec.months}か月後の工場数</span><span class="stat"><b>${hs[hs.length - 1].net.toLocaleString()}G</b>${ec.months}か月後の月収</span></div>`;
-    h += `<div class="grid2"><div class="card"><h3 style="margin:0 0 6px">投資シミュレーション(初期資金 ${D.GOLD_START}G・毎月4品目を発見・最良の投資を繰り返す)</h3><table><tr><th>月</th><th>資金</th><th>月収</th><th>工場</th></tr>${[3, 6, 12, 18, 24, 36].filter((m) => m <= hs.length).map((m) => { const x = hs[m - 1]; return `<tr><td>${m}</td><td>${x.gold.toLocaleString()}G</td><td>${x.net.toLocaleString()}G</td><td>${x.plants}</td></tr>`; }).join("")}</table></div>` +
-      `<div class="card"><h3 style="margin:0 0 6px">業界ごと</h3><table><tr><th>業界</th><th>品目</th><th>黒字</th><th>この時代の需要倍率</th></tr>${secSum}</table></div></div>`;
+    h += `<div><span class="stat"><b>${all}</b>建てられる品目</span><span class="stat"><b>${prof}</b>黒字(工房)</span><span class="stat"><b>${hs[hs.length - 1].plants}</b>${ec.months}か月後の工場数</span><span class="stat"><b>${hs[hs.length - 1].net.toLocaleString()}G</b>${ec.months}か月後の月収</span><span class="stat"><b>${hr[hr.length - 1].net.toLocaleString()}G</b>②研究・特許の月収</span><span class="stat"><b>${ha[ha.length - 1].net.toLocaleString()}G</b>研究員・工程改良も含めた月収</span></div>`;
+    const pts = [3, 6, 12, 24, 36, 60, 120].filter((m) => m <= hs.length);
+    const money = (n) => n.toLocaleString() + "G", dcol = (d) => `<td style="color:${d >= 0 ? "#6ee7a8" : "#ff9a5a"}">${d >= 0 ? "+" : ""}${d.toLocaleString()}G</td>`;
+    h += `<div class="card"><h3 style="margin:0 0 6px">投資シミュレーション(初期資金 ${D.GOLD_START}G・毎月4品目を発見・最良の工場から順に建てる)</h3><p class="muted">3通りを比べます。①工場だけ ②研究所・産業技術・特許にも投資 ③さらに、研究員(専門家)を迎え、工程を改良する。資金に余裕ができたら、自動で投資します(知識ポイントは、毎月10+研究所・研究員の分)。短期では、投資に資金が回って、遅れますが、長期では、差が開きます。(災害などのイベントは、含みません)</p>` +
+      `<table><tr><th rowspan="2">月</th><th colspan="3">① 工場だけ</th><th colspan="3">② 研究・特許</th><th colspan="8">③ ＋研究員・工程改良</th></tr><tr><th>資金</th><th>月収</th><th>工場</th><th>資金</th><th>月収</th><th>差(①比)</th><th>資金</th><th>月収</th><th>工場</th><th>研究員</th><th>工程改良(Lv計)</th><th>産業技術</th><th>研究所</th><th>差(①比)</th></tr>` +
+      pts.map((m) => { const x = hs[m - 1], y = hr[m - 1], z = ha[m - 1]; return `<tr><td>${m}</td><td>${money(x.gold)}</td><td>${money(x.net)}</td><td>${x.plants}</td><td>${money(y.gold)}</td><td>${money(y.net)}</td>${dcol(y.net - x.net)}<td>${money(z.gold)}</td><td>${money(z.net)}</td><td>${z.plants}</td><td>${z.members}</td><td>${z.imp}</td><td>${z.techs}/${D.IND_TECHS.length}</td><td>Lv${z.lab}</td>${dcol(z.net - x.net)}</tr>`; }).join("") + `</table>` +
+      `<p class="muted" style="margin-top:8px">③で迎えた研究員: ${Object.keys(simA.members).map((id) => { const m = D.MEMBERS.find((q) => q.id === id); return m.emoji + m.name; }).join("、") || "なし"}</p></div>`;
+    // 災害・不況への備え: 研究ありの場合の工場群(建設費の合計)で、年間の期待損失と、保険料を比べる
+    const baseSum = Object.entries(simR.built).reduce((s_, [id, lv]) => s_ + EC.baseCost(id, lv), 0), np = Math.max(1, Object.keys(simR.built).length);
+    const dis = D.EVENTS.filter((e) => e.type === "disaster" && e.era <= ec.era), lossYear = dis.reduce((s_, e) => s_ + 12 * e.p * e.sev * baseSum * (e.scope === "one" ? 1 / np : e.scope), 0);
+    const insRow = (I) => { const prem = 12 * baseSum * I.rate, pay = lossYear * I.cover, d = pay - prem; return `<tr><td>${I.name}(第${I.era}期〜)</td><td>${Math.round(I.cover * 100)}%</td><td>${Math.round(prem).toLocaleString()}G</td><td>${Math.round(pay).toLocaleString()}G</td><td style="color:${d >= 0 ? "#6ee7a8" : "#ff9a5a"}">${d >= 0 ? "+" : ""}${Math.round(d).toLocaleString()}G</td></tr>`; };
+    const evRow = (e) => `<tr><td>${e.emoji}${e.name}</td><td>${(e.p * 100).toFixed(1)}%</td><td>${((1 - Math.pow(1 - e.p, 12)) * 100).toFixed(0)}%</td><td class="eq">${e.desc}</td></tr>`;
+    h += `<div class="card"><h3 style="margin:0 0 6px">災害・不況への備え(${np}工場・建設費の合計 ${Math.round(baseSum).toLocaleString()}G の場合)</h3><p class="muted">災害による年間の期待損失は、約 <b>${Math.round(lossYear).toLocaleString()}G</b>(保険なし)。保険料と、補償される期待額を比べると、割に合うかが分かります。(保険数理の研究・専門家で、保険料は下がります)</p>` +
+      `<table><tr><th>保険</th><th>補償</th><th>年間の保険料</th><th>期待される補償額</th><th>差し引き</th></tr>${D.INSURANCE.slice(1).map(insRow).join("")}</table>` +
+      `<table style="margin-top:8px"><tr><th>出来事</th><th>月の確率</th><th>年に1回以上</th><th>内容</th></tr>${D.EVENTS.filter((e) => e.era <= ec.era).map(evRow).join("")}</table></div>`;
+    h += `<div class="card"><h3 style="margin:0 0 6px">業界ごと</h3><table><tr><th>業界</th><th>品目</th><th>黒字</th><th>この時代の需要倍率</th></tr>${secSum}</table></div>`;
     h += `<div class="card"><h3 style="margin:0 0 6px">品目別の収支(月) <span class="chip">${rows.length}</span></h3><table><tr><th>品目</th><th>業界</th><th>単価</th><th>原価</th><th>月の需要</th><th>収率</th><th>工房 建設費</th><th>工房 月益</th><th>回収(月)</th><th>大工場 月益</th><th>必要設備</th></tr>` +
       rows.slice(0, 400).map((r) => `<tr><td>${pill(r.id)}</td><td>${D.SECTORS[r.m.sec].name}</td><td>${r.pr.toFixed(1)}</td><td>${r.uc.toFixed(1)}</td><td>${r.dem}</td><td>${r.yi ? (r.yi.yf * 100).toFixed(0) + "%" + (r.yi.low ? ' <span class="chip warn">低</span>' : "") : "—"}</td><td>${r.c1.toLocaleString()}</td><td>${Math.round(r.p1.profit).toLocaleString()}</td><td>${isFinite(r.pb) ? r.pb.toFixed(1) : "—"}</td><td>${Math.round(r.p3.profit).toLocaleString()}</td><td class="eq">${EC.needs(r.id).map(nm).join("・") || "—"}</td></tr>`).join("") + `</table>${rows.length > 400 ? `<p class="muted">…ほか${rows.length - 400}件</p>` : ""}</div>`;
     return h;
