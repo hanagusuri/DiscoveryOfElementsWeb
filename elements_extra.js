@@ -153,7 +153,7 @@ const EXTRA_ITEM_ROWS = [
 const EXTRA_RECIPE_ROWS = [
   [["lens","glass","fire"],["spectroscope"],"炎の光をプリズムに通すと、元素ごとに決まった色の線に分かれた。",_T(2,3)],
   [["galena","charcoal","fire"],["lead"],"銀灰色の石を炭と焼くと、柔らかく重い金属が得られた。",_T(3,5)],
-  [["lead","ash","fire"],["silver"],"鉛を灰の皿で熱すると、鉛が灰に染み込み、白く輝く銀だけが残った。",_T(3,5)],
+  [["lead","ash","fire"],["silver"],"鉱石から得た鉛には、ごく少量の銀が混ざっている。灰の皿で熱すると、鉛は灰に染み込み、白く輝く銀だけが残った。",_T(3,5)],
   [["stibnite","iron","fire"],["antimony"],"鉄を加えて熱すると、輝く脆い金属が分離した。",_T(3,5)],
   [["orpiment","charcoal","fire"],["arsenic"],"空気を断って熱すると、黒い光沢のある物質が昇華した。毒に注意。",_T(2,4,true)],
   [["bismuth_ore","charcoal","fire"],["bismuth"],"低めの火で、鉛とは違う赤みがかった金属が得られた。",_T(2,3)],

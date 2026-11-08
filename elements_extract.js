@@ -29,6 +29,12 @@
     E("kelp+sulfuric", "iodine", "kelp", "抽出", "海藻の灰に含まれる、ヨウ化物から、ヨウ素を、遊離させて、取り出す。"),
     E("chlorine+kelp", "iodine", "kelp", "抽出", "海藻の灰に含まれる、ヨウ化物から、塩素で、ヨウ素を、追い出して、取り出す。"),
     E("fire+pottery+seawater", "salt", "seawater", "分離", "海水を煮て、水を蒸発させ、溶けていた食塩を、結晶として、取り出す。"),
+    E("ash+fire+lead", "silver", "lead", "分離", "鉛に、わずかに混ざっている銀を、灰の皿で鉛だけを酸化させて灰に吸わせ、銀を残して取り出す。"),
+    E("chlorine+seawater", "bromine", "seawater", "抽出", "海水に、わずかに溶けている臭化物イオンから、塩素で、臭素を追い出して、取り出す。"),
+    E("fire+sulfur+sulfuric", "selenium", "sulfur", "分離", "硫黄や硫酸工場の沈殿物に、不純物として混ざっている、セレンを、分けて取り出す。"),
+    E("xray+zircon", "hafnium", "zircon", "分離", "ジルコンに、ごく少量混ざっているハフニウムを、X線のスペクトルで見つけ、分けて取り出す。"),
+    E("galena+spectroscope+sulfuric", "thallium", "galena", "分離", "方鉛鉱や硫酸工場の沈殿物に、わずかに含まれるタリウムを、緑の輝線で見つけ、分けて取り出す。"),
+    E("spectroscope+sphalerite", "gallium", "sphalerite", "分離", "閃亜鉛鉱に、ごく少量含まれるガリウム(とインジウム)を、スペクトルの輝線で見つけ、分けて取り出す。"),
     E("ash+water", "lye", "ash", "抽出", "灰に含まれる、炭酸カリウムを、水に溶かし出す。"),
     E("alcohol+cell+hcl", "nucleic", "cell", "抽出", "細胞を壊して、核酸を溶かし出し、アルコールで、沈殿させて、取り出す。"),
   ]);
