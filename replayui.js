@@ -465,7 +465,7 @@
     });
   }
   window.EODX = {
-    subs: base.subs.concat(["追体験"]),
+    subs: base.subs.concat([$t("追体験")]),
     init(a) { base.init(a); api = a; attach(); },
     render(i) { return i < n0 ? base.render(i) : replay(); },
     after(i) { if (i < n0 && base.after) base.after(i); },

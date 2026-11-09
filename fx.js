@@ -142,6 +142,7 @@
   const FAIL = /何も起こらなかった|ほとんど得られなかった|足りない|まだ何も出てこない|揺らいで|逃げてしまう|混ざってしまう|分けきれない|分けられない|反応が進まない|邪魔|溶け出して|台無し|消えてしまう/;
   const api = {
     onSay(t) {
+      t = I18N.src(t); // 判定は日本語の原文で行う(訳文から原文を引く)
       if (/^発見:|⚠ 事故/.test(t)) return;
       if (/何かが起きそうだ|もう一つ何かが足りない/.test(t)) return play("near");
       if (/既に知っている/.test(t)) return play("known");
@@ -154,8 +155,9 @@
       if (/融けて|沸騰|凝固|昇華|凝華|凝縮/.test(t) && /^[^…]+: /.test(t)) { play("phase"); const r = rectOf("#bench"); emit(14, r.x, r.y, { colors: ["#cfe8ff", "#fff", "#8bd3ff"], speed: 2.5, shape: "circle", size: 7, g: -0.03, life: 50 }); return; }
       if (FAIL.test(t)) { play("fail"); vib(25); }
     },
-    onToast(m) {
-      if (/新時代へ/.test(m)) { play("era"); banner("新時代へ", m.replace(/^新時代へ:\s*/, "")); const c = TYPE_COL.concept; emit(60, innerWidth / 2, innerHeight * 0.3, { colors: c, speed: 6, spread: 6.28, g: 0.1, life: 90 }); vib([30, 40, 60]); return; }
+    onToast(m0) {
+      const m = I18N.src(m0); // 判定は日本語の原文、表示は訳文
+      if (/新時代へ/.test(m)) { play("era"); banner($t("新時代へ"), m0.replace(/^[^:]+:\s*/, "")); const c = TYPE_COL.concept; emit(60, innerWidth / 2, innerHeight * 0.3, { colors: c, speed: 6, spread: 6.28, g: 0.1, life: 90 }); vib([30, 40, 60]); return; }
       if (/新しい知識|得た|安全第一/.test(m)) { play("sparkle"); const r = rectOf("#pt"); emit(12, r.x, r.y, { colors: TYPE_COL.concept, speed: 2.5, shape: "dot", size: 4, g: 0.02, life: 50 }); return; }
       if (/^正解|成功/.test(m)) { play("ding"); emit(30, innerWidth / 2, innerHeight * 0.45, { colors: TYPE_COL.material.concat(["#ffd86b"]), speed: 5, life: 70 }); vib(20); }
     },
@@ -186,7 +188,7 @@
       if (t.closest("#btnRun")) {
         const filled = document.querySelectorAll(".slot.filled").length; if (!filled) { play("fail"); return; }
         const slots = [...document.querySelectorAll(".slot.filled .sbody small")].map((s) => s.textContent);
-        const fire = slots.includes("火"), elec = slots.includes("電気");
+        const fire = slots.includes($t("火")), elec = slots.includes($t("電気"));
         play("run", { fire, elec }); vib(15);
         const r = rectOf("#bench"); const o = { colors: fire ? ["#ffcf3a", "#ff8a30", "#ff6a20"] : elec ? ["#7fe7ff", "#d8f8ff"] : ["#cfe8ff", "#8bd3ff", "#fff"], speed: 1.8, angle: -1.57, spread: 1.2, g: fire ? -0.05 : -0.025, shape: fire || elec ? "dot" : "circle", size: fire || elec ? 4 : 9, life: 70, jx: (r.w || 200) * 0.6 };
         for (let k = 0; k < 6; k++) setTimeout(() => emit(5, r.x, r.b ? r.b - 10 : r.y, o), k * 140);
@@ -218,12 +220,12 @@
   // ---------------- 設定(図鑑タブ) ----------------
   function renderSettings() {
     const host = document.getElementById("fxSettings"); if (!host) return;
-    host.innerHTML = `<div class="fxbox"><div class="stt">🔊 音と演出</div>` +
-      `<label class="fxrow"><input type="checkbox" id="fxSnd" ${S.sound ? "checked" : ""}> 効果音</label>` +
-      `<label class="fxrow"><span>音量</span><input type="range" id="fxVol" min="0" max="1" step="0.05" value="${S.vol}"></label>` +
-      `<label class="fxrow"><input type="checkbox" id="fxVib" ${S.haptic ? "checked" : ""}> 振動(対応する端末)</label>` +
-      `<label class="fxrow"><input type="checkbox" id="fxVis" ${S.visual ? "checked" : ""}> 演出(紙吹雪・揺れ・フラッシュ)</label>` +
-      `<button id="fxTest" class="mini">テスト音</button></div>`;
+    host.innerHTML = $t(`<div class="fxbox"><div class="stt">🔊 音と演出</div>`) +
+      $t(`<label class="fxrow"><input type="checkbox" id="fxSnd" {0}> 効果音</label>`, [S.sound ? "checked" : ""]) +
+      $t(`<label class="fxrow"><span>音量</span><input type="range" id="fxVol" min="0" max="1" step="0.05" value="{0}"></label>`, [S.vol]) +
+      $t(`<label class="fxrow"><input type="checkbox" id="fxVib" {0}> 振動(対応する端末)</label>`, [S.haptic ? "checked" : ""]) +
+      $t(`<label class="fxrow"><input type="checkbox" id="fxVis" {0}> 演出(紙吹雪・揺れ・フラッシュ)</label>`, [S.visual ? "checked" : ""]) +
+      $t(`<button id="fxTest" class="mini">テスト音</button></div>`);
     const $ = (id) => document.getElementById(id);
     $("fxSnd").onchange = (e) => { S.sound = e.target.checked; save(); if (S.sound) play("ding"); };
     $("fxVol").oninput = (e) => { S.vol = +e.target.value; save(); if (A.master) A.master.gain.value = S.vol; };

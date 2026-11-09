@@ -288,3 +288,7 @@ body.shake main, body.shake header#top { animation: shk .5s; }
 .chips button[data-f]:not([data-f="all"]) { touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
 .chips button.dragging { opacity: .6; transform: scale(1.08); cursor: grabbing; }
 .chips button.dropto { outline: 2px dashed var(--accent); outline-offset: 2px; }
+
+.langsw { display: flex; align-items: center; gap: 8px; margin-top: 20px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 13px; color: var(--dim); }
+.langsw span { flex: 1; }
+.langsw button.on { color: #1a1405; background: var(--accent); border-color: var(--accent); font-weight: 700; }

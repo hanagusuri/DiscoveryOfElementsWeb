@@ -10,6 +10,26 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="style.css">
+<script src="i18n.js"></script>
+<script src="i18n_en_base.js"></script>
+<script src="i18n_en_game.js"></script>
+<script src="i18n_en_chem.js"></script>
+<script src="i18n_en_dyn.js"></script>
+<script src="i18n_en_study.js"></script>
+<script src="i18n_en_industry.js"></script>
+<script src="i18n_en_static.js"></script>
+<script src="i18n_en_notes.js"></script>
+<script src="i18n_en_items1.js"></script>
+<script src="i18n_en_items2.js"></script>
+<script src="i18n_en_items3.js"></script>
+<script src="i18n_en_items4.js"></script>
+<script src="i18n_en_items5.js"></script>
+<script src="i18n_en_recipes1.js"></script>
+<script src="i18n_en_recipes2.js"></script>
+<script src="i18n_en_recipes3.js"></script>
+<script src="i18n_en_techs.js"></script>
+<script src="i18n_en_data.js"></script>
+<script src="i18n_en_data2.js"></script>
 </head>
 <body>
 <header id="top">
@@ -64,6 +84,7 @@
     <div class="lead" id="codexCount"></div>
     <div id="codex"></div>
     <div id="fxSettings"></div>
+    <div class="langsw" id="langSw"><span>🌐 Language / 言語</span><button data-lang="ja">日本語</button><button data-lang="en">English</button></div>
     <button id="btnCheat" class="cheat"></button>
     <!-- ADMIN-LINK-START: 管理者用リンク。公開版では、この3行(コメントとリンク)を削除する -->
     <a id="adminLink" class="adminlink" href="admin.html" target="_blank" rel="noopener">🛠 管理者ビューを開く(反応・生成リスト/ツリー図)</a>
@@ -128,6 +149,7 @@
 <script src="elements_know.js"></script>
 <script src="elements_myth.js"></script>
 <script src="elements_myth2.js"></script>
+<script src="i18n_apply.js"></script>
 <script src="fx.js"></script>
 <script src="chemui.js"></script>
 <script src="dynui.js"></script>
@@ -137,6 +159,15 @@
 <script src="studyui.js"></script>
 <script src="game.js"></script>
 <script src="industry.js"></script>
+<script>
+(function () {
+  I18N.dom(document.body); // 最初からある文言を訳す
+  document.querySelectorAll("#langSw button").forEach(function (b) {
+    if (b.dataset.lang === I18N.lang) b.classList.add("on");
+    b.onclick = function () { if (b.dataset.lang !== I18N.lang) I18N.set(b.dataset.lang); };
+  });
+})();
+</script>
 <script>
 (function () {
   var top = document.getElementById("top");
