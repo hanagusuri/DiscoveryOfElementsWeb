@@ -348,6 +348,7 @@
 
   // ---- 資金で技術(調達)を実行 ----
   const techGold = (t) => t.cost * 25;
-  window.IND = { day: () => st().day, plan, unitCost, buildCost, price, lack, advance, onDiscover, render, easy, canPay, pay, techGold, goldText, date: dateText };
+  const reward = (g) => { if (!easy()) st().gold += g; st().earned += g; }; // 依頼の報酬
+  window.IND = { reward, day: () => st().day, plan, unitCost, buildCost, price, lack, advance, onDiscover, render, easy, canPay, pay, techGold, goldText, date: dateText };
   render();
 })();

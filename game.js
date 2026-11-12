@@ -14,7 +14,7 @@
   const ptOf = (id) => PT_BY_TYPE[items[id].type];
 
   // ---- 状態 ----
-  const fresh = () => ({ have: [...START_ITEMS], techs: [], pt: 0, how: {}, seen: [...START_ITEMS], log: [$t("火と水を選んで「実験する」を押してみよう。")], maxEra: 1, cheat: false, prog: {}, acc: {}, injured: 0, safeDone: {}, phase: {}, states: {}, still: null, cellsBuilt: {} });
+  const fresh = () => ({ have: [...START_ITEMS], techs: [], pt: 0, how: {}, seen: [...START_ITEMS], log: [$t("火と水を選んで「実験する」を押してみよう。")], maxEra: 1, cheat: false, prog: {}, acc: {}, injured: 0, safeDone: {}, phase: {}, states: {}, still: null, cellsBuilt: {}, goal: null, clues: [], orders: {} });
   let S = load();
   let slots = [], amts = []; // 素材IDと、それぞれの量
   let filter = "all";
@@ -610,6 +610,7 @@
     $("eraBar").style.width = (S.have.length / total * 100).toFixed(1) + "%";
     renderLab(); renderTech(); renderCodex(); renderTable(); renderMol();
     if (window.IND) IND.render();
+    if (window.GOALS) GOALS.render();
   }
 
   function renderCond() {
@@ -700,6 +701,7 @@
     }).join("");
     $("btnRun").disabled = busy || slots.length === 0;
     $("btnHint").disabled = busy || S.pt < HINT_COST;
+    $("btnHint").classList.toggle("goalon", !!(S.goal && !has(S.goal)));
     $("log").innerHTML = S.log.map((l) => `<p>${l}</p>`).join("");
 
     const f = chipList();
@@ -883,10 +885,10 @@
           const res = rollAccident(new Set([...hazardKinds(slots, [], null, [], temp)].filter((x) => ["exo", "fire", "expl"].includes(x))), 0.5);
           if (res.worst) { accident(res.worst.kind, res.worst.sev, names); return; }
         }
-        const near = recipes.some((x) => slots.every((s) => x.inp.includes(s)) && x.inp.length > slots.length);
         const mr = recipes.find((x) => x.miss && x.inp.length === slots.length + 1 && slots.every((s) => x.inp.includes(s)));
         if (mr) { say(`${names} … ${mr.miss}`); renderLab(); return; }
-        say(near ? $t(`{0} … 何かが起きそうだ。もう一つ何かが足りない気がする。`, [names]) : $t(`{0} … 何も起こらなかった。`, [names]));
+        const nm_ = nearMiss();
+        say(nm_ ? `${names} … ${nm_}` : $t(`{0} … 何も起こらなかった。`, [names]));
         renderLab(); return;
       }
       const gate = DATA.REPLAY_GATES && DATA.REPLAY_GATES[r.key];
@@ -973,6 +975,61 @@
     }, 900);
   }
 
+  // ---- 惜しい判定: 材料の一部が合っているときに、反応の兆しを返す(材料の名前は出さない) ----
+  // 兆しは「手がかり」として残る(まだ作っていないものだけ)。種類: short=足りない / extra=余計 / swap=1つ違う
+  function nearMiss() {
+    const sl = [...new Set(slots)];
+    let best = null;
+    recipes.forEach((x) => {
+      if (x.out.every(has) || x.miss) return;
+      if (!x.inp.every(has) || recipeBlocks(x).length) return; // 今の手持ちと設備で、本当に実現できる反応だけが、兆しになる
+      const I = new Set(x.inp), common = sl.filter((i) => I.has(i)).length;
+      let kind = null, score = 0;
+      if (I.size >= 2 && sl.length === I.size && common === I.size - 1 && common >= 1) { kind = "swap"; score = 4; }
+      else if (common === I.size && sl.length === I.size + 1) { kind = "extra"; score = 3; }
+      else if (common >= 1 && common === sl.length && sl.length === I.size - 1) { kind = "short"; score = 2; }
+      if (kind && (!best || score > best.score)) best = { kind, score, r: x };
+    });
+    if (!best) return null;
+    const t = kindOfOut(best.r);
+    {
+      S.clues = S.clues || [];
+      const ck = keyOf(slots);
+      S.clues = S.clues.filter((c) => c.ck !== ck);
+      S.clues.unshift({ ck, ids: [...slots].sort(), k: best.kind, rk: best.r.key });
+      S.clues = S.clues.slice(0, 12);
+      save();
+    }
+    const feel = { mat: $t("かすかに、変化の兆しがある"), tool: $t("何かが組み上がりそうな、手応えがある"), concept: $t("何かが、分かりかけている気がする") }[t];
+    if (best.kind === "swap") return feel + $t("。確かに近い。ただ、どれか1つが、違うのかもしれない。");
+    if (best.kind === "extra") return feel + $t("。だが、余計なものが邪魔をしているようだ。");
+    return feel + $t("。もう一つ、何かが足りない。");
+  }
+  function kindOfOut(r) { const ts = [...new Set(r.out.filter((o) => !has(o)).map((o) => items[o].type))]; return ts.length === 1 && ts[0] === "tool" ? "tool" : ts.length === 1 && ts[0] === "concept" ? "concept" : "mat"; }
+
+  // ---- 目標: 目標のアイテムに至る道筋のうち、今できる一歩を探す ----
+  // 戻り値: {kind:"recipe", r, depth, blocked} | {kind:"tech", t, depth} | {kind:"dist", mix, depth} | null
+  const srcIndex = (() => { const m = {}; recipes.forEach((r) => r.out.forEach((o) => (m[o] = m[o] || []).push(r))); return m; })();
+  function goalPlan(goal, depth = 0, seen = new Set()) {
+    if (depth > 10 || seen.has(goal) || has(goal)) return null;
+    seen.add(goal);
+    const cands = [];
+    (srcIndex[goal] || []).forEach((r) => {
+      const gate = DATA.REPLAY_GATES && DATA.REPLAY_GATES[r.key];
+      const need = [...r.inp.filter((i) => !has(i)), ...(r.equip || []).filter((e) => !has(e)), ...(gate && !has(gate) ? [gate] : [])];
+      cands.push({ kind: "recipe", r, need, cost: need.length * 10 + r.inp.length });
+    });
+    TECHS.filter((t) => t.grants.includes(goal)).forEach((t) => cands.push({ kind: "tech", t, need: t.req.filter((i) => !has(i)), cost: t.req.filter((i) => !has(i)).length * 10 + 5 }));
+    Object.keys(DIST).forEach((mix) => { if (DIST[mix].comps.some((c) => c.out === goal)) cands.push({ kind: "dist", mix, need: [mix, "alembic"].filter((i) => !has(i)), cost: [mix, "alembic"].filter((i) => !has(i)).length * 10 + 3 }); });
+    cands.sort((a, b) => a.cost - b.cost);
+    for (const c of cands) {
+      if (!c.need.length) return Object.assign(c, { depth });
+      for (const n of c.need) { const sub = goalPlan(n, depth + 1, new Set(seen)); if (sub) return sub; }
+      if (c.kind === "recipe" && c.r.inp.every(has)) return Object.assign(c, { depth, blocked: true }); // 材料はあるが、設備や理論が足りない
+    }
+    return null;
+  }
+
   // ---- ヒント: 持っている素材・設備・条件に応じて、出し方を変える ----
   // 実験を実行するために足りないものを調べる(名前は出さず、種類だけを返す)
   function recipeBlocks(r) {
@@ -1016,11 +1073,23 @@
   function hint() {
     if (S.pt < HINT_COST) return;
     const nm = (i) => items[i].emoji + items[i].name;
+    let gp = S.goal && !has(S.goal) ? goalPlan(S.goal) : null; // 目標があれば、その道筋の上のヒントだけを出す
+    let cands = collect(gp);
+    if (!cands.length && gp) { gp = null; cands = collect(null); }
+    if (!cands.length) { say($t("今は、思いつく手がかりがない。「技術」から新しい探索を進めたり、手持ちの素材を観察してみよう。")); renderLab(); return; }
+    const tier = Math.min(...cands.map((c) => c.tier)), pool = cands.filter((c) => c.tier === tier);
+    const c = pool[Math.floor(Math.random() * pool.length)];
+    S.pt -= HINT_COST;
+    say(gp ? c.text.replace($t("ヒント: "), $t("🎯目標のヒント: ")) + (gp.depth ? $t(" (目標には、まだ手前の段階が必要なようだ)") : $t(" (目標は、もうすぐだ)")) : c.text);
+    save(); render();
+    function collect(gp) {
     const cands = []; // {tier, text}
     // 作れるものの種類で、文言を変える(道具・知識・物質)
     const kindOf = (r) => { const ts = [...new Set(r.out.filter((o) => !has(o)).map((o) => items[o].type))]; return ts.length === 1 && ts[0] === "tool" ? "tool" : ts.length === 1 && ts[0] === "concept" ? "concept" : "mat"; };
     const W = { mat: [$t("何かが起きる。"), $t("何かが起きそうだが、今のままでは足りない。"), $t("何かが起きそうだ。")], tool: [$t("何か、道具(装置)が作れそうだ。"), $t("何か、道具(装置)が作れそうだが、今のままでは足りない。"), $t("何か、道具(装置)が作れそうだ。")], concept: [$t("何かが、分かりそうだ。"), $t("何かが、分かりそうだが、今のままでは足りない。"), $t("何かが、分かりそうだ。")] };
+    if (gp && gp.kind === "tech") cands.push({ tier: 1, text: $t("ヒント: 「技術」タブに、関係しそうな探索がある。「") + gp.t.name + $t("」") });
     recipes.forEach((r) => {
+      if (gp && (gp.kind !== "recipe" || r !== gp.r)) return;
       if (!r.out.some((o) => !has(o))) return; // すでに全部持っている
       if (r.out.every((o) => has(o) || S.seen.includes(o))) { // 以前に発見したが、事故で壊れた器具: 新しい発見ではない。作り直せることだけ、伝える
         const broken = r.out.filter((o) => !has(o) && items[o].type === "tool");
@@ -1042,16 +1111,13 @@
     });
     // 蒸留で成分を取り出せる混合物
     Object.keys(DIST).forEach((mix) => {
+      if (gp && (gp.kind !== "dist" || mix !== gp.mix)) return;
       if (!has(mix) || !DIST[mix].comps.some((c) => c.out && !has(c.out))) return;
       cands.push(has("alembic") ? { tier: 1, text: $t("ヒント: ") + nm(mix) + $t(" は、蒸留器で温度を上げながら加熱すると、成分が順に分かれて出てくるかもしれない。") }
         : { tier: 3, text: $t("ヒント: ") + nm(mix) + $t(" は、成分に分けられそうだ。液体を蒸気にして冷やす、特別な器具が要りそうだ。") });
     });
-    if (!cands.length) { say($t("今は、思いつく手がかりがない。「技術」から新しい探索を進めたり、手持ちの素材を観察してみよう。")); renderLab(); return; }
-    const tier = Math.min(...cands.map((c) => c.tier)), pool = cands.filter((c) => c.tier === tier);
-    const c = pool[Math.floor(Math.random() * pool.length)];
-    S.pt -= HINT_COST;
-    say(c.text);
-    save(); render();
+    return cands;
+    }
   }
 
   function buyTech(id, byGold) {
@@ -1140,7 +1206,8 @@
       if (e) { e.scrollIntoView({ block: "center" }); e.classList.add("hilite"); setTimeout(() => e.classList.remove("hilite"), 2600); } else window.scrollTo(0, 0);
     }, 60);
   }
-  window.EOD = { go, S: () => S, has, items, order, ptOf, grantConcept, save, render, toast, say, DATA, MolViz, showCard };
+  function setGoal(id) { S.goal = id || null; save(); render(); }
+  window.EOD = { go, S: () => S, recipes, recipeByKey, currentEra, goalPlan, setGoal, TYPE_LABEL, kindOfOut, has, items, order, ptOf, grantConcept, save, render, toast, say, DATA, MolViz, showCard };
   if (window.EODX) EODX.init(window.EOD);
   render();
   if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(() => {});
