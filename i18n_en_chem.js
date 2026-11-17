@@ -134,4 +134,6 @@ I18N.add({
   "(熱が出た)": " (heat released)", "(熱を吸った)": " (heat absorbed)",
   " 📐反応式を記録": " 📐 Equation recorded",
   "反応式": "Equations", "イオン": "Ions", "分析": "Analysis", "モル": "Moles", "反応式づくり": "Balancing",
+  "分子の動きを3Dで見る": "Watch the molecules in 3D", "閉じる": "Close",
+  [`<div class="eqrow dim">🔒 「反応熱」の概念を得ると、分子の動きを3Dで見られる</div>`]: `<div class="eqrow dim">🔒 Learn the concept of “heat of reaction” to watch the molecules in 3D</div>`,
 });

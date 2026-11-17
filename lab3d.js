@@ -118,6 +118,10 @@
     N2: { name: "N₂", atoms: [["N", [-0.55, 0, 0]], ["N", [0.55, 0, 0]]], bonds: [[0, 1, 3]] },
     Cl2: { name: "Cl₂", atoms: [["Cl", [-0.995, 0, 0]], ["Cl", [0.995, 0, 0]]], bonds: [[0, 1, 1]] },
     HCl: { name: "HCl", atoms: [["H", [-0.8, 0, 0]], ["Cl", [0.47, 0, 0]]], bonds: [[0, 1, 1]] },
+    CO: { name: "CO", atoms: [["C", [-0.48, 0, 0]], ["O", [0.65, 0, 0]]], bonds: [[0, 1, 3]] },
+    H2O2: { name: "H₂O₂", atoms: [["O", [-0.74, 0, 0]], ["O", [0.74, 0, 0]], ["H", [-0.907, 0.946, 0]], ["H", [0.907, -0.339, 0.883]]], bonds: [[0, 1, 1], [0, 2, 1], [1, 3, 1]] },
+    C2H4: { name: "C₂H₄", atoms: [["C", [-0.67, 0, 0]], ["C", [0.67, 0, 0]], ["H", [-1.24, 0.93, 0]], ["H", [-1.24, -0.93, 0]], ["H", [1.24, 0.93, 0]], ["H", [1.24, -0.93, 0]]], bonds: [[0, 1, 2], [0, 2, 1], [0, 3, 1], [1, 4, 1], [1, 5, 1]] },
+    C2H6: { name: "C₂H₆", atoms: [["C", [-0.77, 0, 0]], ["C", [0.77, 0, 0]]].concat([0, 1, 2].map((k) => ["H", [-1.133, 1.027 * Math.cos(k * TAU / 3), 1.027 * Math.sin(k * TAU / 3)]]), [0, 1, 2].map((k) => ["H", [1.133, 1.027 * Math.cos(k * TAU / 3 + Math.PI / 3), 1.027 * Math.sin(k * TAU / 3 + Math.PI / 3)]])), bonds: [[0, 1, 1], [0, 2, 1], [0, 3, 1], [0, 4, 1], [1, 5, 1], [1, 6, 1], [1, 7, 1]] },
     NO: { name: "NO", atoms: [["N", [-0.58, 0, 0]], ["O", [0.58, 0, 0]]], bonds: [[0, 1, 2]] },
     H2O: { name: "H₂O", atoms: [["O", [0, -0.07, 0]], ["H", [0.757, 0.517, 0]], ["H", [-0.757, 0.517, 0]]], bonds: [[0, 1, 1], [0, 2, 1]] },
     CO2: { name: "CO₂", atoms: [["C", [0, 0, 0]], ["O", [1.16, 0, 0]], ["O", [-1.16, 0, 0]]], bonds: [[0, 1, 2], [0, 2, 2]] },
@@ -126,13 +130,18 @@
   };
   // 反応の定義。map: 生成物の各原子(生成物の並び順)が、反応物のどの原子(反応物の並び順の通し番号)だったか
   const RXNS = [
-    { id: "h2o", name: "水素の燃焼", eq: "2H₂ + O₂ → 2H₂O", react: ["H2", "H2", "O2"], prod: ["H2O", "H2O"], map: [4, 0, 2, 5, 1, 3], actual: -484 },
-    { id: "ch4", name: "メタンの燃焼", eq: "CH₄ + 2O₂ → CO₂ + 2H₂O", react: ["CH4", "O2", "O2"], prod: ["CO2", "H2O", "H2O"], map: [0, 5, 7, 6, 1, 2, 8, 3, 4], actual: -802 },
-    { id: "nh3", name: "アンモニア合成", eq: "N₂ + 3H₂ → 2NH₃", react: ["N2", "H2", "H2", "H2"], prod: ["NH3", "NH3"], map: [0, 2, 4, 6, 1, 3, 5, 7], actual: -92 },
-    { id: "hcl", name: "塩化水素の合成", eq: "H₂ + Cl₂ → 2HCl", react: ["H2", "Cl2"], prod: ["HCl", "HCl"], map: [0, 2, 1, 3], actual: -184 },
-    { id: "no", name: "一酸化窒素(吸熱)", eq: "N₂ + O₂ → 2NO", react: ["N2", "O2"], prod: ["NO", "NO"], map: [0, 2, 1, 3], actual: 180 },
+    { id: "h2o", gid: "water_syn", name: "水素の燃焼", react: ["H2", "H2", "O2"], prod: ["H2O", "H2O"], map: [4, 0, 2, 5, 1, 3], actual: -484 },
+    { id: "ch4", gid: "methane_burn", name: "メタンの燃焼", react: ["CH4", "O2", "O2"], prod: ["CO2", "H2O", "H2O"], map: [0, 5, 7, 6, 1, 2, 8, 3, 4], actual: -802 },
+    { id: "nh3", gid: "haber", name: "アンモニア合成", react: ["N2", "H2", "H2", "H2"], prod: ["NH3", "NH3"], map: [0, 2, 4, 6, 1, 3, 5, 7], actual: -92 },
+    { id: "hcl", name: "塩化水素の合成", react: ["H2", "Cl2"], prod: ["HCl", "HCl"], map: [0, 2, 1, 3], actual: -184 },
+    { id: "no", name: "一酸化窒素(吸熱)", react: ["N2", "O2"], prod: ["NO", "NO"], map: [0, 2, 1, 3], actual: 180 },
+    { id: "h2o_elec", gid: "water_elec", name: "水の分解(吸熱)", react: ["H2O", "H2O"], prod: ["H2", "H2", "O2"], map: [1, 4, 2, 5, 0, 3], actual: 484 },
+    { id: "h2o2", gid: "h2o2_dec", name: "過酸化水素の分解", react: ["H2O2", "H2O2"], prod: ["H2O", "H2O", "O2"], map: [0, 2, 3, 4, 6, 7, 1, 5], actual: -212 },
+    { id: "sabatier", gid: "sabatier", name: "メタンの合成", react: ["CO", "H2", "H2", "H2"], prod: ["CH4", "H2O"], map: [0, 2, 3, 4, 5, 1, 6, 7], actual: -206 },
+    { id: "hydro", gid: "hydrogenation", name: "エチレンの水素付加", react: ["C2H4", "H2"], prod: ["C2H6"], map: [0, 1, 2, 3, 6, 4, 5, 7], actual: -137 },
   ];
 
+  const eqText = (d) => molList(d.react) + " → " + molList(d.prod);
   function seeded(str) {
     let h = 1779033703 ^ str.length;
     for (let i = 0; i < str.length; i++) { h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); }
@@ -219,11 +228,25 @@
     const key = (a, b) => (a < b ? a + "_" + b : b + "_" + a);
     const rMap = new Map(rb.map((b) => [key(b.a, b.b), b])), pMap = new Map(pb.map((b) => [key(b.a, b.b), b]));
     const breaks = [], forms = [], stays = [];
-    rb.forEach((b) => { const p = pMap.get(key(b.a, b.b)); if (p && p.o === b.o) stays.push(b); else breaks.push(b); });
-    pb.forEach((b) => { const r = rMap.get(key(b.a, b.b)); if (!(r && r.o === b.o)) forms.push(b); });
-    const decorate = (list, kind, a, b) => { const ws = windows(list.length, a, b); list.forEach((x, i) => Object.assign(x, bondInfo(atoms[x.a].el, atoms[x.b].el, x.o), { w: ws[i], kind })); };
+    rb.forEach((b) => { // 結合の次数だけが変わるもの(C=C → C–C など)は「一部だけ切れる」として扱う
+      const p = pMap.get(key(b.a, b.b));
+      if (p && p.o === b.o) stays.push(b); else if (p && p.o < b.o) breaks.push({ a: b.a, b: b.b, o: b.o, oFrom: b.o, oTo: p.o, partial: true }); else if (!p) breaks.push(b);
+    });
+    pb.forEach((b) => {
+      const r = rMap.get(key(b.a, b.b));
+      if (!r) forms.push(b); else if (r.o < b.o) forms.push({ a: b.a, b: b.b, o: b.o, oFrom: r.o, oTo: b.o, partial: true });
+    });
+    const decorate = (list, kind, a, b) => {
+      const ws = windows(list.length, a, b);
+      list.forEach((x, i) => {
+        const el1 = atoms[x.a].el, el2 = atoms[x.b].el;
+        let info = bondInfo(el1, el2, x.o);
+        if (x.partial) { const f = bondInfo(el1, el2, x.oFrom), t = bondInfo(el1, el2, x.oTo); info = { name: f.name + "→" + t.name, e: Math.abs(f.e - t.e) }; }
+        Object.assign(x, info, { w: ws[i], kind });
+      });
+    };
     decorate(breaks, "break", 0.27, 0.51); decorate(forms, "form", 0.62, 0.92);
-    const span = (list, j) => { const ws = list.filter((x) => x.a === j || x.b === j).map((x) => x.w); return ws.length ? [Math.min(...ws.map((w) => w[0])), Math.max(...ws.map((w) => w[1]))] : null; };
+    const span = (list, j) => { const ws = list.filter((x) => !x.partial && (x.a === j || x.b === j)).map((x) => x.w); return ws.length ? [Math.min(...ws.map((w) => w[0])), Math.max(...ws.map((w) => w[1]))] : null; };
     return {
       def, atoms, mols, R, F, P, DR, breaks, forms, stays, pm,
       BW: R.map((_, j) => span(breaks, j)), FW: R.map((_, j) => span(forms, j) || [0.62, 0.92]),
@@ -282,7 +305,7 @@
       { r: [0.62, 0.9], t: "新しい結合ができる(熱を放出)", s: "結合ができるたびに、エネルギーが熱や光として出ていく。" + summary(FORMS) },
       { r: [0.9, 1.01], t: outs + " ができた", s: heat ? "吸収 " + TOTAL_IN + " kJ より放出 " + TOTAL_OUT + " kJ が大きい。差の " + Math.abs(NET) + " kJ が熱として出る(発熱)" : "吸収 " + TOTAL_IN + " kJ より放出 " + TOTAL_OUT + " kJ が小さい。足りない " + Math.abs(NET) + " kJ は、外から加え続ける必要がある(吸熱)" },
     ];
-    $("rxNote").textContent = "切る: " + summary(BREAKS) + " = " + TOTAL_IN + " kJ ／ つくる: " + summary(FORMS) + " = " + TOTAL_OUT + " kJ ／ 差 " + fmt(NET) + " kJ(" + (heat ? "発熱" : "吸熱") + ")。平均結合エネルギーによる近似値。実測は " + fmt(def.actual) + " kJ(気体どうしの反応)。";
+    $("rxNote").textContent = "切る: " + summary(BREAKS) + " = " + TOTAL_IN + " kJ ／ つくる: " + summary(FORMS) + " = " + TOTAL_OUT + " kJ ／ 差 " + fmt(NET) + " kJ(" + (heat ? "発熱" : "吸熱") + ")。平均結合エネルギーによる近似値。実測は " + fmt(def.actual) + " kJ(すべて気体として)。化学タブの値と違うのは、水などが液体になるときの熱(凝縮熱)を含むかどうかの違い。";
     rx.t = 0; rx.parts = []; rx.flashes = []; rx.heat = 0; rx.cold = 0; rx.fireFrom = undefined; lastStep = -1;
     [...$("rxChips").children].forEach((c, i) => c.classList.toggle("on", i === idx));
   }
@@ -298,8 +321,8 @@
   // その時刻に存在する結合: {a,b,o,rf(太さ), shared(共有電子の有無), hot}
   function bondsAt(t) {
     const out = STAYS.map((b) => ({ a: b.a, b: b.b, o: b.o, rf: 1, shared: true, hot: 0 }));
-    BREAKS.forEach((b) => { const s = prog(t, b.w); if (s < 0.85) out.push({ a: b.a, b: b.b, o: b.o, rf: 1 - 0.8 * s, shared: s < 0.5, hot: s }); });
-    FORMS.forEach((f) => { const p = prog(t, f.w); if (p > 0.45) out.push({ a: f.a, b: f.b, o: f.o, rf: sm((p - 0.45) / 0.4), shared: p > 0.8, hot: 0 }); });
+    BREAKS.forEach((b) => { const s = prog(t, b.w); if (b.partial) { out.push({ a: b.a, b: b.b, o: s < 0.5 ? b.oFrom : b.oTo, rf: 1, shared: true, hot: Math.sin(s * Math.PI) }); return; } if (s < 0.85) out.push({ a: b.a, b: b.b, o: b.o, rf: 1 - 0.8 * s, shared: s < 0.5, hot: s }); });
+    FORMS.forEach((f) => { const p = prog(t, f.w); if (f.partial) { out.push({ a: f.a, b: f.b, o: p < 0.5 ? f.oFrom : f.oTo, rf: 1, shared: true, hot: 0 }); return; } if (p > 0.45) out.push({ a: f.a, b: f.b, o: f.o, rf: sm((p - 0.45) / 0.4), shared: p > 0.8, hot: 0 }); });
     return out;
   }
 
@@ -404,7 +427,7 @@
     if (si !== lastStep) {
       lastStep = si;
       [...stepsEl.children].forEach((e, i) => e.classList.toggle("on", i === si));
-      $("capT").textContent = STEPS[si].t; $("capS").textContent = si === 0 ? CUR.name + ": " + CUR.eq : STEPS[si].s;
+      $("capT").textContent = STEPS[si].t; $("capS").textContent = si === 0 ? CUR.name + ": " + eqText(CUR) : STEPS[si].s;
     }
     $("lgIn").textContent = Math.round(inNow) + " kJ"; $("lgOut").textContent = Math.round(outNow) + " kJ";
     const net = Math.round(inNow - outNow), ne = $("lgNet");
@@ -631,6 +654,8 @@
   // デバッグ用: ?t=0.7(その時刻で停止) ?tab=at&el=Cl
   const qs = new URLSearchParams(location.search);
   if (qs.get("el") && ELS[qs.get("el")]) atom.el = qs.get("el");
+  if (qs.get("embed")) document.body.classList.add("embed");
+  if (qs.get("eq")) { const i = RXNS.findIndex((d) => d.gid === qs.get("eq")); if (i >= 0) { loadReaction(i); $("rxChips").classList.add("hidden"); } }
   if (qs.has("r") && RXNS[+qs.get("r")]) loadReaction(+qs.get("r"));
   if (qs.has("t")) { rx.t = clamp(+qs.get("t")); setPlay(false); }
   if (qs.has("style")) { rx.style = qs.get("style"); syncStyle(); }

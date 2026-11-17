@@ -8,6 +8,17 @@
   const owned = (id) => api.has(id);
   const spi = (id) => D().speciesInfo(id);
   const GAS = new Set(["hydrogen", "oxygen", "nitrogen", "chlorine", "co2", "co", "so2", "h2s", "ammonia", "methane", "ethylene", "ethane", "acetylene"]);
+  // 分子ラボ(lab3d.html)に、3D の定義がある反応式。lab3d.js の RXNS の gid と同じ id を並べる
+  const LAB_EQ = new Set(["water_syn", "methane_burn", "haber", "water_elec", "h2o2_dec", "sabatier", "hydrogenation"]);
+  function openLab(id) {
+    if (document.getElementById("labOverlay")) return;
+    const o = document.createElement("div"); o.id = "labOverlay";
+    o.innerHTML = `<button class="labclose">✕ ${$t("閉じる")}</button><iframe src="lab3d.html?embed=1&eq=${encodeURIComponent(id)}" title="3D"></iframe>`;
+    const onKey = (e) => { if (e.key === "Escape") close(); };
+    const close = () => { o.remove(); document.removeEventListener("keydown", onKey); };
+    o.querySelector(".labclose").onclick = close; document.addEventListener("keydown", onKey);
+    document.body.appendChild(o);
+  }
   const BASE_C = 0.1, VA = 20.0; // 滴定: NaOH 0.100 mol/L で、未知の塩酸 20.0 mL を滴定する
 
   let anaSample = null, anaReagent = null, anaLog = [], titrInd = "php", calcSel = null, calcVal = "", calcUnit = "g", quizQ = null;
@@ -112,6 +123,7 @@
         else html += $t(`<div class="eqrow"><b>熱</b> {0}</div>`, [dh < 0 ? $t("熱が出る(発熱反応)") : $t("熱を吸う(吸熱反応)")]);
         if (has("activation_energy") && eq.cat) html += $t(`<div class="eqrow"><small>触媒が活性化エネルギーの山を低くして、反応を速める</small></div>`);
       }
+      if (LAB_EQ.has(eq.id)) html += has("enthalpy") ? `<button class="lab3dbtn" data-xa="lab3d" data-v="${eq.id}">🔬 ${$t("分子の動きを3Dで見る")}</button>` : $t(`<div class="eqrow dim">🔒 「反応熱」の概念を得ると、分子の動きを3Dで見られる</div>`);
       html += `</div>`;
     });
     if (has("hess_law")) html += $t(`<p class="lead">💡 ヘスの法則: 経路が違っても、反応熱の合計は同じ。生成熱(ΔfH)から、実験できない反応の熱も計算できる。</p>`);
@@ -425,6 +437,7 @@
     document.addEventListener("click", (e) => {
       const t = e.target.closest("[data-xa]"); if (!t) return;
       const a = t.dataset.xa;
+      if (a === "lab3d") { openLab(t.dataset.v); return; }
       if (a === "test") runTest(); else if (a === "quiz") quizAct(); else if (/^b(p|m|check|reset|pick|calc)$/.test(a)) builderAct(a, t.dataset.v, t.dataset); else titrationAct(a, t.dataset.v);
     });
     document.addEventListener("change", (e) => {

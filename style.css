@@ -307,3 +307,9 @@ body.shake main, body.shake header#top { animation: shk .5s; }
 .gl-row > div:nth-child(2) { flex: 1; } .gl-row p { margin: 0; font-size: 12.5px; } .gl-row p.how { color: var(--accent2); font-size: 11.5px; }
 .gl-row.ok .e { opacity: 1; } .gl-row button.on { background: var(--accent); color: #1a1405; border-color: var(--accent); }
 .gl-clue { font-size: 12.5px; padding: 3px 0; } .gl-clue small { color: var(--dim); margin-left: 6px; }
+
+/* 分子ラボ 3D(lab3d.html を重ねて表示) */
+.lab3dbtn { width: 100%; margin-top: 8px; padding: 10px; border-radius: 10px; border: 1px solid var(--accent2); background: #14282a; color: var(--accent2); font: inherit; font-weight: 600; cursor: pointer; }
+#labOverlay { position: fixed; inset: 0; z-index: 40; background: var(--bg); }
+#labOverlay iframe { width: 100%; height: 100%; border: 0; display: block; }
+#labOverlay .labclose { position: absolute; top: calc(var(--sat) + 8px); right: 12px; z-index: 2; padding: 6px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel2); color: var(--text); font: inherit; cursor: pointer; }
