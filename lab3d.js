@@ -24,8 +24,8 @@
   const rnd = (a, b) => a + Math.random() * (b - a);
 
   // ---- 色・半径(CPK 配色) ----
-  const COL = { H: [244, 244, 244], He: [217, 255, 255], C: [96, 96, 104], N: [60, 90, 250], O: [227, 66, 52], Na: [171, 92, 242], Cl: [40, 220, 60] };
-  const RAD = { H: 0.34, He: 0.3, C: 0.5, N: 0.5, O: 0.52, Na: 0.6, Cl: 0.6 };
+  const COL = { H: [244, 244, 244], He: [217, 255, 255], C: [96, 96, 104], N: [60, 90, 250], O: [227, 66, 52], Na: [171, 92, 242], Cl: [40, 220, 60], S: [235, 215, 60], Cu: [205, 120, 70], Fe: [170, 110, 95], Hg: [160, 170, 185] };
+  const RAD = { H: 0.34, He: 0.3, C: 0.5, N: 0.5, O: 0.52, Na: 0.6, Cl: 0.6, S: 0.58, Cu: 0.55, Fe: 0.55, Hg: 0.6 };
   const COLD = [92, 200, 255], WARM = [255, 138, 61], YEL = [255, 216, 74];
   const rgb = (c, k = 1, a = 1) => "rgba(" + Math.min(255, c[0] * k) + "," + Math.min(255, c[1] * k) + "," + Math.min(255, c[2] * k) + "," + a + ")";
   const mix = (a, b, k) => [lerp(a[0], b[0], k), lerp(a[1], b[1], k), lerp(a[2], b[2], k)];
@@ -102,13 +102,14 @@
   // =====================================================================
   const BD = window.MolViz.BOND_DATA;
   const SYM = { 1: "-", 2: "=", 3: "#" };
-  function bondInfo(e1, e2, o) {
+  function bondInfo(e1, e2, o, ov) {
+    if (ov) return { name: ov.name, e: ov.e };
     const k1 = e1 + SYM[o] + e2, k2 = e2 + SYM[o] + e1, k = BD[k1] ? k1 : BD[k2] ? k2 : null;
     if (!k) { console.warn("結合エネルギーのデータがありません: " + k1); return { name: k1, e: 0 }; }
     return { name: k.replace("-", "–").replace("#", "≡"), e: BD[k][1] };
   }
   const fmt = (v) => (v < 0 ? "−" : v > 0 ? "+" : "") + Math.abs(Math.round(v));
-  const VE = { H: 1, C: 4, N: 5, O: 6, Cl: 7 };
+  const VE = { H: 1, C: 4, N: 5, O: 6, Cl: 7, S: 6, Na: 1, Cu: 2, Fe: 2, Hg: 2 };
 
   // 分子の雛形: 原子 [元素, 局所座標(Å)] と結合 [原子A, 原子B, 結合次数]
   const tet = (s) => [[1, 1, 1], [1, -1, -1], [-1, 1, -1], [-1, -1, 1]].map((v) => mul(v, s / Math.sqrt(3)));
@@ -122,6 +123,18 @@
     H2O2: { name: "H₂O₂", atoms: [["O", [-0.74, 0, 0]], ["O", [0.74, 0, 0]], ["H", [-0.907, 0.946, 0]], ["H", [0.907, -0.339, 0.883]]], bonds: [[0, 1, 1], [0, 2, 1], [1, 3, 1]] },
     C2H4: { name: "C₂H₄", atoms: [["C", [-0.67, 0, 0]], ["C", [0.67, 0, 0]], ["H", [-1.24, 0.93, 0]], ["H", [-1.24, -0.93, 0]], ["H", [1.24, 0.93, 0]], ["H", [1.24, -0.93, 0]]], bonds: [[0, 1, 2], [0, 2, 1], [0, 3, 1], [1, 4, 1], [1, 5, 1]] },
     C2H6: { name: "C₂H₆", atoms: [["C", [-0.77, 0, 0]], ["C", [0.77, 0, 0]]].concat([0, 1, 2].map((k) => ["H", [-1.133, 1.027 * Math.cos(k * TAU / 3), 1.027 * Math.sin(k * TAU / 3)]]), [0, 1, 2].map((k) => ["H", [1.133, 1.027 * Math.cos(k * TAU / 3 + Math.PI / 3), 1.027 * Math.sin(k * TAU / 3 + Math.PI / 3)]])), bonds: [[0, 1, 1], [0, 2, 1], [0, 3, 1], [0, 4, 1], [1, 5, 1], [1, 6, 1], [1, 7, 1]] },
+    SO2: { name: "SO₂", atoms: [["S", [0, 0.24, 0]], ["O", [1.233, -0.48, 0]], ["O", [-1.233, -0.48, 0]]], bonds: [[0, 1, 2], [0, 2, 2]] },
+    // ---- 固体・イオン結晶(static: 動き回らない。solid: 単原子の固体。結晶から切り離す/結晶になるエネルギーを持つ)----
+    C_s: { name: "C", static: true, atoms: [["C", [0, 0, 0]]], bonds: [], solid: { e: 717, label: "C(黒鉛)", stubs: 3, ty: "net" } },
+    S_s: { name: "S", static: true, atoms: [["S", [0, 0, 0]]], bonds: [], solid: { e: 279, label: "S(結晶)", stubs: 2, ty: "net" } },
+    Cu_s: { name: "Cu", static: true, atoms: [["Cu", [0, 0, 0]]], bonds: [], solid: { e: 337, label: "Cu(金属)", stubs: 4, ty: "met" } },
+    Fe_s: { name: "Fe", static: true, atoms: [["Fe", [0, 0, 0]]], bonds: [], solid: { e: 416, label: "Fe(金属)", stubs: 4, ty: "met" } },
+    Hg_s: { name: "Hg", static: true, atoms: [["Hg", [0, 0, 0]]], bonds: [], solid: { e: 61, label: "Hg(液体)", stubs: 2, ty: "met" } },
+    Na_s: { name: "Na", static: true, atoms: [["Na", [0, 0, 0]]], bonds: [], solid: { e: 107, label: "Na(金属)", stubs: 4, ty: "met" } },
+    CuO: { name: "CuO", static: true, atoms: [["Cu", [-0.95, 0, 0], 2], ["O", [0.95, 0, 0], -2]], bonds: [[0, 1, 1, { ty: "ion", e: 743, name: "Cu²⁺–O²⁻" }]] },
+    HgO: { name: "HgO", static: true, atoms: [["Hg", [-1.05, 0, 0], 2], ["O", [1.05, 0, 0], -2]], bonds: [[0, 1, 1, { ty: "ion", e: 401, name: "Hg²⁺–O²⁻" }]] },
+    Fe2O3: { name: "Fe₂O₃", static: true, atoms: [["Fe", [-1.2, 0, 0], 3], ["Fe", [1.2, 0, 0], 3], ["O", [0, 1.4, 0], -2], ["O", [0, -0.7, 1.2], -2], ["O", [0, -0.7, -1.2], -2]], bonds: [[0, 2], [0, 3], [0, 4], [1, 2], [1, 3], [1, 4]].map((b, i) => [b[0], b[1], 1, { ty: "ion", e: i % 2 ? 400 : 401, name: "Fe³⁺–O²⁻" }]) },
+    Na2Cl2: { name: "2NaCl", static: true, atoms: [["Na", [-1.3, -1.3, 0], 1], ["Cl", [1.3, -1.3, 0], -1], ["Na", [1.3, 1.3, 0], 1], ["Cl", [-1.3, 1.3, 0], -1]], bonds: [[0, 1], [1, 2], [2, 3], [3, 0]].map((b, i) => [b[0], b[1], 1, { ty: "ion", e: i % 2 ? 393 : 394, name: "Na⁺–Cl⁻" }]) },
     NO: { name: "NO", atoms: [["N", [-0.58, 0, 0]], ["O", [0.58, 0, 0]]], bonds: [[0, 1, 2]] },
     H2O: { name: "H₂O", atoms: [["O", [0, -0.07, 0]], ["H", [0.757, 0.517, 0]], ["H", [-0.757, 0.517, 0]]], bonds: [[0, 1, 1], [0, 2, 1]] },
     CO2: { name: "CO₂", atoms: [["C", [0, 0, 0]], ["O", [1.16, 0, 0]], ["O", [-1.16, 0, 0]]], bonds: [[0, 1, 2], [0, 2, 2]] },
@@ -139,6 +152,13 @@
     { id: "h2o2", gid: "h2o2_dec", name: "過酸化水素の分解", react: ["H2O2", "H2O2"], prod: ["H2O", "H2O", "O2"], map: [0, 2, 3, 4, 6, 7, 1, 5], actual: -212 },
     { id: "sabatier", gid: "sabatier", name: "メタンの合成", react: ["CO", "H2", "H2", "H2"], prod: ["CH4", "H2O"], map: [0, 2, 3, 4, 5, 1, 6, 7], actual: -206 },
     { id: "hydro", gid: "hydrogenation", name: "エチレンの水素付加", react: ["C2H4", "H2"], prod: ["C2H6"], map: [0, 1, 2, 3, 6, 4, 5, 7], actual: -137 },
+    // ---- 気体以外: 固体は「結晶から原子を切り離す(原子化)」、イオン結晶は「イオンの結合」で数える ----
+    { id: "coal", gid: "coal_burn", name: "炭の燃焼", react: ["C_s", "O2"], prod: ["CO2"], map: [0, 1, 2], actual: -394, basis: "黒鉛から炭素原子を切り離すエネルギー(717)を使う。" },
+    { id: "sulfur", gid: "sulfur_burn", name: "硫黄の燃焼", react: ["S_s", "O2"], prod: ["SO2"], map: [0, 1, 2], actual: -297, basis: "硫黄の結晶(S₈ の環)から原子を切り離すエネルギー(279)を使う。" },
+    { id: "cu", gid: "cu_ox", name: "銅の酸化", react: ["Cu_s", "Cu_s", "O2"], prod: ["CuO", "CuO"], map: [0, 2, 1, 3], actual: -314, basis: "金属から原子を切り離すエネルギー(337)を使う。酸化物の結晶ができる値(743)は、生成熱から逆算した、電子の移動と結晶化を合わせた値。" },
+    { id: "hg", gid: "hg_ox", name: "水銀の酸化", react: ["Hg_s", "Hg_s", "O2"], prod: ["HgO", "HgO"], map: [0, 2, 1, 3], actual: -182, basis: "液体の水銀から原子を切り離すエネルギー(61)を使う。酸化物の結晶ができる値(401)は、生成熱から逆算した値。" },
+    { id: "rust", gid: "rust", name: "鉄の錆", react: ["Fe_s", "Fe_s", "Fe_s", "Fe_s", "O2", "O2", "O2"], prod: ["Fe2O3", "Fe2O3"], map: [0, 1, 4, 5, 6, 2, 3, 7, 8, 9], actual: -1648, basis: "金属から原子を切り離すエネルギー(416)を使う。酸化物の結晶ができる値(Fe–O 1 本あたり約 400)は、生成熱から逆算した値。" },
+    { id: "nacl", gid: "nacl_elec", name: "塩の電気分解(吸熱)", react: ["Na2Cl2"], prod: ["Na_s", "Na_s", "Cl2"], map: [0, 2, 1, 3], actual: 822, xfer: { "Na:1>0": { e: -496, name: "Na⁺ + e⁻ → Na" }, "Cl:-1>0": { e: 349, name: "Cl⁻ → Cl + e⁻" } }, basis: "ボルン・ハーバー・サイクルの値: 格子エネルギー 787、Na のイオン化エネルギー 496、Cl の電子親和力 349、Na の昇華 107、Cl–Cl 243(NaCl 1 mol あたり)。実際の電気分解では、このエネルギーを電気で与える。" },
   ];
 
   const eqText = (d) => molList(d.react) + " → " + molList(d.prod);
@@ -174,26 +194,30 @@
   }
 
   // ---- 現在の反応(loadReaction が詰める) ----
-  let CUR, EL, RA, FA, PA, MOLS, MOL_OF, DRIFT, BW, FW, BREAKS, FORMS, STAYS, TOTAL_IN, TOTAL_OUT, NET, STEPS, EVENTS, GROUPS, DURATION, EXT, YR;
+  let CUR, EL, RA, FA, PA, MOLS, MOL_OF, DRIFT, BW, FW, BREAKS, POST, EVTS, STAYS, TOTAL_IN, TOTAL_OUT, NET, EHOLD, STEPS, EVENTS, GROUPS, DURATION, EXT, YR, Q0, Q1, XW, STUB_R, STUB_P;
 
   function buildReaction(def) {
     const rng = seeded(def.id), atoms = [], mols = [], pm = [];
     // 反応物の配置
     def.react.forEach((k, mi) => {
       const t = MOLT[k], base = atoms.length, lc = centroid(t.atoms.map((a) => a[1])), ax = randAxis(rng), ang = rng() * TAU;
-      t.atoms.forEach((a) => atoms.push({ el: a[0], mol: mi }));
+      t.atoms.forEach((a) => atoms.push({ el: a[0], mol: mi, q: a[2] || 0 }));
       mols.push({ t, base, c: [0, 0, 0], rel: t.atoms.map((a) => rodrigues(sub(a[1], lc), ax, ang)) });
     });
-    const N = atoms.length, rho = Math.max(2.3, 1.15 * mols.length);
+    const N = atoms.length, rho = Math.max(2.3, 1.5 + 0.55 * mols.length);
     mols.forEach((m, i) => { m.c = mols.length === 1 ? [0, 0, 0] : mul(fib(i, mols.length), rho); });
     relaxMols(mols, 2.6, rng);
     const R = new Array(N);
     mols.forEach((m) => m.rel.forEach((r, k) => { R[m.base + k] = add(m.c, r); }));
-    // 結合
-    const rb = [], pb = [];
-    mols.forEach((m) => m.t.bonds.forEach((b) => rb.push({ a: m.base + b[0], b: m.base + b[1], o: b[2] })));
+    // 結合(第4要素は、固体・イオン結晶のための指定: {ty, e, name})
+    const rb = [], pb = [], breaks = [], forms = [], xfers = [];
+    mols.forEach((m) => {
+      m.t.bonds.forEach((b) => rb.push({ a: m.base + b[0], b: m.base + b[1], o: b[2], ty: (b[3] && b[3].ty) || "cov", ov: b[3] || null }));
+      if (m.t.solid) m.t.atoms.forEach((_, k) => breaks.push({ a: m.base + k, b: m.base + k, o: 1, self: true, ty: m.t.solid.ty, ov: { e: m.t.solid.e, name: m.t.solid.label } }));
+    });
     // 生成物の配置: 反応物のどの原子から来たかに合わせて、向きと位置を決める
-    let base = 0; const P = new Array(N), pOf = new Array(N);
+    let base = 0; const P = new Array(N), pOf = new Array(N), Q1 = new Array(N).fill(0), STUBP = new Array(N).fill(null), STUBR = new Array(N).fill(null);
+    mols.forEach((m) => { if (m.t.solid) m.t.atoms.forEach((_, k) => { STUBR[m.base + k] = { n: m.t.solid.stubs, ty: m.t.solid.ty }; }); });
     def.prod.forEach((k, pi) => {
       const t = MOLT[k], idx = t.atoms.map((_, q) => def.map[base + q]), lc = centroid(t.atoms.map((a) => a[1])), loc = t.atoms.map((a) => sub(a[1], lc));
       const tg = idx.map((j) => R[j]), cen = centroid(tg); let best = null;
@@ -202,8 +226,10 @@
         let cost = 0; rel.forEach((r, q) => { const d = sub(r, sub(tg[q], cen)); cost += dot(d, d); });
         if (!best || cost < best.cost) best = { cost, rel };
       }
-      pm.push({ idx, c: cen, rel: best.rel });
-      t.bonds.forEach((b) => pb.push({ a: idx[b[0]], b: idx[b[1]], o: b[2] }));
+      pm.push({ idx, c: cen, rel: best.rel, t });
+      t.atoms.forEach((a, q) => { Q1[idx[q]] = a[2] || 0; if (t.solid) STUBP[idx[q]] = { n: t.solid.stubs, ty: t.solid.ty }; });
+      t.bonds.forEach((b) => pb.push({ a: idx[b[0]], b: idx[b[1]], o: b[2], ty: (b[3] && b[3].ty) || "cov", ov: b[3] || null }));
+      if (t.solid) t.atoms.forEach((_, q) => forms.push({ a: idx[q], b: idx[q], o: 1, self: true, ty: t.solid.ty, ov: { e: t.solid.e, name: t.solid.label } }));
       base += t.atoms.length;
     });
     if (base !== N) throw new Error("反応の定義: 原子の数が合いません " + def.id);
@@ -211,7 +237,7 @@
     const gcen = centroid(pm.map((m) => m.c)), DR = new Array(N);
     pm.forEach((m, pi) => {
       let dir = sub(m.c, gcen); if (Math.hypot(...dir) < 1e-6) dir = [rng() - 0.5, 0.2, rng() - 0.5];
-      const dv = add(mul(norm(dir), 3.4), [0, 0.2, 0]);
+      const dv = m.t.static ? [0, 0, 0] : add(mul(norm(dir), 3.4), [0, 0.2, 0]);
       m.idx.forEach((j, q) => { P[j] = add(m.c, m.rel[q]); pOf[j] = pi; DR[j] = dv; });
     });
     // ばらばらの原子の位置(反応物と生成物のあいだ。原子どうしは離す)
@@ -227,40 +253,50 @@
     // 切れる結合 / できる結合 / そのままの結合
     const key = (a, b) => (a < b ? a + "_" + b : b + "_" + a);
     const rMap = new Map(rb.map((b) => [key(b.a, b.b), b])), pMap = new Map(pb.map((b) => [key(b.a, b.b), b]));
-    const breaks = [], forms = [], stays = [];
+    const stays = [];
     rb.forEach((b) => { // 結合の次数だけが変わるもの(C=C → C–C など)は「一部だけ切れる」として扱う
       const p = pMap.get(key(b.a, b.b));
-      if (p && p.o === b.o) stays.push(b); else if (p && p.o < b.o) breaks.push({ a: b.a, b: b.b, o: b.o, oFrom: b.o, oTo: p.o, partial: true }); else if (!p) breaks.push(b);
+      if (p && p.o === b.o) stays.push(b); else if (p && p.o < b.o) breaks.push({ a: b.a, b: b.b, o: b.o, oFrom: b.o, oTo: p.o, partial: true, ty: "cov" }); else if (!p) breaks.push(b);
     });
     pb.forEach((b) => {
       const r = rMap.get(key(b.a, b.b));
-      if (!r) forms.push(b); else if (r.o < b.o) forms.push({ a: b.a, b: b.b, o: b.o, oFrom: r.o, oTo: b.o, partial: true });
+      if (!r) forms.push(b); else if (r.o < b.o) forms.push({ a: b.a, b: b.b, o: b.o, oFrom: r.o, oTo: b.o, partial: true, ty: "cov" });
     });
-    const decorate = (list, kind, a, b) => {
-      const ws = windows(list.length, a, b);
-      list.forEach((x, i) => {
+    // 電荷が変わる原子 = 電子の移動
+    atoms.forEach((a, j) => {
+      if (a.q === Q1[j]) return;
+      const x = (def.xfer && def.xfer[a.el + ":" + a.q + ">" + Q1[j]]) || { e: 0, name: "電子の移動" };
+      xfers.push({ a: j, b: j, o: 1, self: true, xfer: true, ty: "cov", dE: x.e, name: x.name, e: Math.abs(x.e) });
+    });
+    const finish = (list, kind, ws) => list.forEach((x, i) => {
+      if (!x.xfer) {
         const el1 = atoms[x.a].el, el2 = atoms[x.b].el;
-        let info = bondInfo(el1, el2, x.o);
+        let info = bondInfo(el1, el2, x.o, x.ov);
         if (x.partial) { const f = bondInfo(el1, el2, x.oFrom), t = bondInfo(el1, el2, x.oTo); info = { name: f.name + "→" + t.name, e: Math.abs(f.e - t.e) }; }
-        Object.assign(x, info, { w: ws[i], kind });
-      });
-    };
-    decorate(breaks, "break", 0.27, 0.51); decorate(forms, "form", 0.62, 0.92);
-    const span = (list, j) => { const ws = list.filter((x) => !x.partial && (x.a === j || x.b === j)).map((x) => x.w); return ws.length ? [Math.min(...ws.map((w) => w[0])), Math.max(...ws.map((w) => w[1]))] : null; };
+        Object.assign(x, info, { dE: kind === "break" ? info.e : -info.e });
+      }
+      x.w = ws[i]; x.kind = x.xfer ? "xfer" : kind;
+    });
+    finish(breaks, "break", windows(breaks.length, 0.27, 0.51));
+    const post = xfers.concat(forms);
+    const ws = windows(post.length, 0.62, 0.92);
+    post.forEach((x, i) => finish([x], "form", [ws[i]]));
+    const span = (list, j) => { const w = list.filter((x) => !x.partial && !x.xfer && (x.a === j || x.b === j)).map((x) => x.w); return w.length ? [Math.min(...w.map((q) => q[0])), Math.max(...w.map((q) => q[1]))] : null; };
+    const xw = new Array(N).fill(null); xfers.forEach((x) => { xw[x.a] = x.w; });
     return {
-      def, atoms, mols, R, F, P, DR, breaks, forms, stays, pm,
+      def, atoms, mols, R, F, P, DR, breaks, post, stays, pm, q0: atoms.map((a) => a.q), q1: Q1, xw, stubR: STUBR, stubP: STUBP,
       BW: R.map((_, j) => span(breaks, j)), FW: R.map((_, j) => span(forms, j) || [0.62, 0.92]),
     };
   }
 
-  const summary = (list) => { // 「H–H 436 × 2 + O=O 498」
+  const summary = (list) => { // 「H–H 436 × 2 + O=O 498」(エネルギーが 0 のものは、名前だけ)
     const order = [], cnt = {};
     list.forEach((b) => { if (!cnt[b.name]) { cnt[b.name] = { n: 0, e: b.e }; order.push(b.name); } cnt[b.name].n++; });
-    return order.map((k) => k + " " + cnt[k].e + (cnt[k].n > 1 ? " × " + cnt[k].n : "")).join(" + ");
+    return order.map((k) => k + (cnt[k].e ? " " + cnt[k].e : "") + (cnt[k].n > 1 ? " × " + cnt[k].n : "")).join(" + ");
   };
-  const groupsOf = (list) => { // 同じ種類の連続する結合を、グラフの注釈では1つにまとめる
+  const groupsOf = (list) => { // 同じ種類の連続するイベントを、グラフの注釈では1つにまとめる
     const gs = [];
-    list.forEach((b) => { const g = gs[gs.length - 1]; if (g && g.name === b.name) { g.n++; g.e += b.e; g.w1 = b.w[1]; } else gs.push({ name: b.name, n: 1, e: b.e, w0: b.w[0], w1: b.w[1], kind: b.kind }); });
+    list.forEach((b) => { const g = gs[gs.length - 1]; if (g && g.name === b.name) { g.n++; g.dE += b.dE; g.w1 = b.w[1]; } else gs.push({ name: b.name, n: 1, dE: b.dE, w0: b.w[0], w1: b.w[1] }); });
     return gs;
   };
 
@@ -282,35 +318,46 @@
   function loadReaction(idx) {
     const def = RXNS[idx], B = buildReaction(def);
     CUR = def; EL = B.atoms.map((a) => a.el); RA = B.R; FA = B.F; PA = B.P; DRIFT = B.DR; BW = B.BW; FW = B.FW;
-    BREAKS = B.breaks; FORMS = B.forms; STAYS = B.stays;
+    BREAKS = B.breaks; POST = B.post; STAYS = B.stays; EVTS = BREAKS.concat(POST).sort((x, y) => x.w[0] - y.w[0]);
+    Q0 = B.q0; Q1 = B.q1; XW = B.xw; STUB_R = B.stubR; STUB_P = B.stubP;
     const rng = seeded(def.id + "far"), rc = centroid(B.mols.map((m) => m.c));
     MOLS = B.mols.map((m) => {
       let dir = sub(m.c, rc); if (Math.hypot(...dir) < 1e-6) dir = [1, 0.3, 0.2];
-      return { c: m.c, off: add(mul(norm(dir), 7), [0, rng() * 2 - 1, rng() * 2 - 1]), ax: randAxis(rng), spin: (rng() < 0.5 ? -1 : 1) * (2 + rng() * 1.4) };
+      const still = !!m.t.static; // 固体は動き回らない
+      return { c: m.c, off: still ? [0, 0, 0] : add(mul(norm(dir), 7), [0, rng() * 2 - 1, rng() * 2 - 1]), ax: randAxis(rng), spin: still ? 0 : (rng() < 0.5 ? -1 : 1) * (2 + rng() * 1.4) };
     });
     MOL_OF = B.atoms.map((a) => a.mol);
-    TOTAL_IN = BREAKS.reduce((s, b) => s + b.e, 0); TOTAL_OUT = FORMS.reduce((s, f) => s + f.e, 0); NET = TOTAL_IN - TOTAL_OUT;
-    DURATION = 12 + 1.6 * (BREAKS.length + FORMS.length);
+    TOTAL_IN = EVTS.reduce((s, x) => s + Math.max(0, x.dE), 0); TOTAL_OUT = EVTS.reduce((s, x) => s + Math.max(0, -x.dE), 0); NET = TOTAL_IN - TOTAL_OUT;
+    EHOLD = BREAKS.reduce((s, x) => s + x.dE, 0);
+    DURATION = Math.min(44, 12 + 1.6 * EVTS.length);
     EXT = Math.max(...[].concat(RA, FA, PA).map((p) => Math.hypot(...p)));
-    const lo = Math.min(0, NET), hi = TOTAL_IN, pad = (hi - lo) * 0.14; YR = [lo - pad, hi + pad * 0.8];
+    let lo = 0, hi = 0; for (let i = 0; i <= 200; i++) { const e = energyAt(i / 200); lo = Math.min(lo, e); hi = Math.max(hi, e); }
+    const pad = (hi - lo) * 0.14; YR = [lo - pad, hi + pad * 0.8];
     EVENTS = [];
-    BREAKS.forEach((b) => { EVENTS.push({ t: b.w[0] + 0.01, kind: "abs", a: b.a, b: b.b }); EVENTS.push({ t: (b.w[0] + b.w[1]) / 2, kind: "snap", a: b.a, b: b.b }); });
-    FORMS.forEach((f) => EVENTS.push({ t: f.w[1] - 0.004, kind: "rel", a: f.a, b: f.b }));
-    GROUPS = groupsOf(BREAKS).concat(groupsOf(FORMS));
-    const heat = NET < 0, names = molList(def.react), outs = molList(def.prod);
+    EVTS.forEach((x) => {
+      if (x.kind === "break") { EVENTS.push({ t: x.w[0] + 0.01, kind: "abs", a: x.a, b: x.b }); EVENTS.push({ t: (x.w[0] + x.w[1]) / 2, kind: "snap", a: x.a, b: x.b }); }
+      else if (x.kind === "xfer") EVENTS.push({ t: (x.w[0] + x.w[1]) / 2, kind: "xfer", a: x.a, b: x.b });
+      else EVENTS.push({ t: x.w[1] - 0.004, kind: "rel", a: x.a, b: x.b });
+    });
+    GROUPS = groupsOf(EVTS);
+    const heat = NET < 0, names = molList(def.react), outs = molList(def.prod), hasX = POST.some((x) => x.xfer);
+    const pos = EVTS.filter((x) => x.dE > 0), neg = EVTS.filter((x) => x.dE < 0), after = POST.filter((x) => x.dE !== 0 || x.xfer);
     STEPS = [
-      { r: [0, 0.27], t: "分子が近づく", s: names },
-      { r: [0.27, 0.51], t: "結合を切る(エネルギーを吸収)", s: "結合を切るには、外からエネルギーが必要。" + summary(BREAKS) },
-      { r: [0.51, 0.62], t: "ばらばらの原子", s: "切る結合をすべて切った状態。エネルギーは最も高い(+" + TOTAL_IN + " kJ)" },
-      { r: [0.62, 0.9], t: "新しい結合ができる(熱を放出)", s: "結合ができるたびに、エネルギーが熱や光として出ていく。" + summary(FORMS) },
+      { r: [0, 0.27], t: "近づく", s: names },
+      { r: [0.27, 0.51], t: "結合を切る(エネルギーを吸収)", s: "結晶や分子の結合を切るには、外からエネルギーが必要。" + summary(BREAKS) },
+      { r: [0.51, 0.62], t: "ばらばらの原子", s: "切る結合をすべて切った状態。エネルギーは " + fmt(EHOLD) + " kJ" },
+      { r: [0.62, 0.9], t: hasX ? "電子が移り、新しい結合ができる" : "新しい結合ができる(熱を放出)", s: (hasX ? "電子の受け渡しで、原子がイオンに(あるいは、イオンが原子に)なる。" : "結合ができるたびに、エネルギーが熱や光として出ていく。") + (after.length <= 4 ? summary(after) : "") },
       { r: [0.9, 1.01], t: outs + " ができた", s: heat ? "吸収 " + TOTAL_IN + " kJ より放出 " + TOTAL_OUT + " kJ が大きい。差の " + Math.abs(NET) + " kJ が熱として出る(発熱)" : "吸収 " + TOTAL_IN + " kJ より放出 " + TOTAL_OUT + " kJ が小さい。足りない " + Math.abs(NET) + " kJ は、外から加え続ける必要がある(吸熱)" },
     ];
-    $("rxNote").textContent = "切る: " + summary(BREAKS) + " = " + TOTAL_IN + " kJ ／ つくる: " + summary(FORMS) + " = " + TOTAL_OUT + " kJ ／ 差 " + fmt(NET) + " kJ(" + (heat ? "発熱" : "吸熱") + ")。平均結合エネルギーによる近似値。実測は " + fmt(def.actual) + " kJ(すべて気体として)。化学タブの値と違うのは、水などが液体になるときの熱(凝縮熱)を含むかどうかの違い。";
+    const gasOnly = !def.basis;
+    $("rxNote").textContent = "吸収: " + summary(pos) + " = " + TOTAL_IN + " kJ ／ 放出: " + summary(neg) + " = " + TOTAL_OUT + " kJ ／ 差 " + fmt(NET) + " kJ(" + (heat ? "発熱" : "吸熱") + ")。" +
+      (gasOnly ? "平均結合エネルギーによる近似値。実測は " + fmt(def.actual) + " kJ(すべて気体として)。化学タブの値と違うのは、水などが液体になるときの熱(凝縮熱)を含むかどうかの違い。" : def.basis + " 実測は " + fmt(def.actual) + " kJ。");
     rx.t = 0; rx.parts = []; rx.flashes = []; rx.heat = 0; rx.cold = 0; rx.fireFrom = undefined; lastStep = -1;
     [...$("rxChips").children].forEach((c, i) => c.classList.toggle("on", i === idx));
   }
 
-  const energyAt = (t) => BREAKS.reduce((s, b) => s + b.e * prog(t, b.w), 0) - FORMS.reduce((s, f) => s + f.e * prog(t, f.w), 0);
+  const energyAt = (t) => EVTS.reduce((s, x) => s + x.dE * prog(t, x.w), 0);
+  const chargeAt = (i, t) => (Q0[i] === Q1[i] || !XW[i] ? Q0[i] : t < (XW[i][0] + XW[i][1]) / 2 ? Q0[i] : Q1[i]);
   function atomPos(i, t) {
     const m = MOLS[MOL_OF[i]], pA = prog(t, [0, 0.25]);
     let p = add(add(m.c, mul(m.off, 1 - pA)), rodrigues(sub(RA[i], m.c), m.ax, (1 - pA) * m.spin));
@@ -320,15 +367,31 @@
   }
   // その時刻に存在する結合: {a,b,o,rf(太さ), shared(共有電子の有無), hot}
   function bondsAt(t) {
-    const out = STAYS.map((b) => ({ a: b.a, b: b.b, o: b.o, rf: 1, shared: true, hot: 0 }));
-    BREAKS.forEach((b) => { const s = prog(t, b.w); if (b.partial) { out.push({ a: b.a, b: b.b, o: s < 0.5 ? b.oFrom : b.oTo, rf: 1, shared: true, hot: Math.sin(s * Math.PI) }); return; } if (s < 0.85) out.push({ a: b.a, b: b.b, o: b.o, rf: 1 - 0.8 * s, shared: s < 0.5, hot: s }); });
-    FORMS.forEach((f) => { const p = prog(t, f.w); if (f.partial) { out.push({ a: f.a, b: f.b, o: p < 0.5 ? f.oFrom : f.oTo, rf: 1, shared: true, hot: 0 }); return; } if (p > 0.45) out.push({ a: f.a, b: f.b, o: f.o, rf: sm((p - 0.45) / 0.4), shared: p > 0.8, hot: 0 }); });
+    const cov = (x) => x.ty === "cov";
+    const out = STAYS.map((b) => ({ a: b.a, b: b.b, o: b.o, ty: b.ty, rf: 1, shared: cov(b), hot: 0 }));
+    EVTS.forEach((x) => {
+      if (x.self || x.xfer) return; // 単原子の固体や電子の移動は、結合の線ではない
+      const p = prog(t, x.w);
+      if (x.kind === "break") {
+        if (x.partial) out.push({ a: x.a, b: x.b, o: p < 0.5 ? x.oFrom : x.oTo, ty: "cov", rf: 1, shared: true, hot: Math.sin(p * Math.PI) });
+        else if (p < 0.85) out.push({ a: x.a, b: x.b, o: x.o, ty: x.ty, rf: 1 - 0.8 * p, shared: cov(x) && p < 0.5, hot: p });
+      } else if (x.partial) out.push({ a: x.a, b: x.b, o: p < 0.5 ? x.oFrom : x.oTo, ty: "cov", rf: 1, shared: true, hot: 0 });
+      else if (p > 0.45) out.push({ a: x.a, b: x.b, o: x.o, ty: x.ty, rf: sm((p - 0.45) / 0.4), shared: cov(x) && p > 0.8, hot: 0 });
+    });
     return out;
   }
 
   function fire(ev, pos) {
     const mid = mul(add(pos[ev.a], pos[ev.b]), 0.5);
-    if (ev.kind === "abs") {
+    if (ev.kind === "xfer") { // 電子が、手放す原子から、受け取る原子へ流れる
+      const gain = Q1[ev.a] < Q0[ev.a]; let best = null;
+      EL.forEach((_, j) => { if (j === ev.a || (Q1[j] < Q0[j]) === gain || Q1[j] === Q0[j]) return; const d = Math.hypot(...sub(pos[j], pos[ev.a])); if (!best || d < best.d) best = { j, d }; });
+      if (best) {
+        const src = gain ? pos[best.j] : pos[ev.a], dst = gain ? pos[ev.a] : pos[best.j], life = 0.7;
+        for (let i = 0; i < 9; i++) rx.parts.push({ p: add(src, [rnd(-0.15, 0.15), rnd(-0.15, 0.15), rnd(-0.15, 0.15)]), v: mul(sub(dst, src), 1 / (life * rnd(0.85, 1.15))), life: life * rnd(0.8, 1), max: life, col: YEL, size: 0.07, drag: 0 });
+      }
+      rx.flashes.push({ p: pos[ev.a], age: 0, col: YEL, big: 0.8 });
+    } else if (ev.kind === "abs") {
       for (let i = 0; i < 18; i++) {
         const d = norm([rnd(-1, 1), rnd(-1, 1), rnd(-1, 1)]), r = rnd(2.4, 3.6), life = rnd(0.55, 0.85);
         rx.parts.push({ p: add(mid, mul(d, r)), v: mul(d, -r / life), life, max: life, col: COLD, size: 0.07, drag: 0 });
@@ -352,9 +415,9 @@
   function renderRx(now, dt) {
     const { g, W, H, cam } = rx, t = rx.t, sk = STYLE[rx.style];
     g.clearRect(0, 0, W, H);
-    const unit = H * 0.55 / (EXT + 1.0) * (rx.style === "sf" ? 0.8 : 1), P = makeProj(cam, W, H, unit);
-    const E = energyAt(t), outNow = FORMS.reduce((s, f) => s + f.e * prog(t, f.w), 0), inNow = BREAKS.reduce((s, b) => s + b.e * prog(t, b.w), 0);
-    const cold = clamp(E / TOTAL_IN), warm = clamp(outNow / TOTAL_OUT) * (1 - 0.6 * prog(t, [0.9, 1])) * (NET < 0 ? 1 : 0.5);
+    const unit = H * (EXT > 4.5 ? 0.4 : 0.55) / (EXT + 1.0) * (rx.style === "sf" ? 0.8 : 1), P = makeProj(cam, W, H, unit);
+    const E = energyAt(t), outNow = EVTS.reduce((s, x) => s + Math.max(0, -x.dE) * prog(t, x.w), 0), inNow = EVTS.reduce((s, x) => s + Math.max(0, x.dE) * prog(t, x.w), 0);
+    const cold = clamp(E / Math.max(1, EHOLD)), warm = clamp(outNow / Math.max(1, TOTAL_OUT)) * (1 - 0.6 * prog(t, [0.9, 1])) * (NET < 0 ? 1 : 0.5);
     // 周囲の光(吸収=青、放出=橙)
     if (rx.heat > 0.02) halo(g, W / 2, H / 2, H * 0.9, WARM, 0.26 * Math.min(1, rx.heat));
     if (rx.cold > 0.02) halo(g, W / 2, H / 2, H * 0.9, COLD, 0.22 * Math.min(1, rx.cold));
@@ -377,11 +440,26 @@
     const items = []; rx.hits = [];
 
     pos.forEach((p, i) => {
-      const el = EL[i], ra = rx.style === "st" ? 0.17 : RAD[el] * sk.a, q = P(p), r = ra * q.s;
+      const el = EL[i], qc = chargeAt(i, t), ion = rx.style === "st" ? 1 : qc > 0 ? 0.72 : qc < 0 ? 1.18 : 1;
+      const ra = rx.style === "st" ? 0.17 : RAD[el] * sk.a * ion, q = P(p), r = ra * q.s;
       items.push({ d: q.d, f: () => sphere(g, q.x, q.y, r, COL[el], cold * 0.9, warm * 0.9) });
       rx.hits.push({ x: q.x, y: q.y, r: Math.max(r * 1.2, 12), el, d: q.d });
+      if (qc) { // イオンの電荷
+        const txt = (Math.abs(qc) > 1 ? Math.abs(qc) : "") + (qc > 0 ? "+" : "−");
+        items.push({ d: q.d - 0.01, f: () => { g.font = "bold " + Math.max(11, Math.round(r * 0.8)) + "px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillStyle = qc > 0 ? "#ffb3b3" : "#b3d4ff"; g.strokeStyle = "rgba(0,0,0,.6)"; g.lineWidth = 3; g.strokeText(txt, q.x + r * 0.85, q.y - r * 0.85); g.fillText(txt, q.x + r * 0.85, q.y - r * 0.85); } });
+      }
+      // 結晶につながっている「手」(固体の原子): 切り離されるまで/結晶になるまで、うっすら見える
+      const sR = STUB_R[i] ? 1 - (BW[i] ? prog(t, BW[i]) : 0) : 0, sP = STUB_P[i] ? prog(t, FW[i]) : 0, spec = sR >= sP ? STUB_R[i] : STUB_P[i], str = Math.max(sR, sP);
+      if (spec && str > 0.03) {
+        const col = spec.ty === "met" ? [255, 190, 110] : [200, 200, 220];
+        for (let k = 0; k < spec.n; k++) {
+          const an = TAU * k / spec.n + 0.5, dv = norm([Math.cos(an), -0.35, Math.sin(an)]), tip = P(add(p, mul(dv, 1.15 * (0.6 + 0.4 * str))));
+          items.push({ d: tip.d, f: () => { g.strokeStyle = rgb(col, 1, 0.55 * str); g.lineWidth = Math.max(2, 0.07 * q.s); g.lineCap = "round"; g.beginPath(); g.moveTo(q.x, q.y); g.lineTo(tip.x, tip.y); g.stroke(); g.fillStyle = rgb(col, 1, 0.7 * str); g.beginPath(); g.arc(tip.x, tip.y, Math.max(2, 0.09 * q.s), 0, TAU); g.fill(); } });
+        }
+      }
       if (showE) { // 共有されていない電子(原子のまわりを回る)
-        const n = Math.max(0, VE[el] - shared[i]), orb = (rx.style === "st" ? RAD[el] : ra) * 1.45;
+        const sh = shared[i] + (spec && spec.ty === "net" ? spec.n * str : 0);
+        const n = Math.max(0, Math.round(VE[el] - qc - sh)), orb = (rx.style === "st" ? RAD[el] : ra) * 1.45;
         for (let k = 0; k < n; k++) {
           const ang = now * 3 + Math.floor(k / 2) * TAU / Math.ceil(n / 2) + (k % 2) * 0.55 + i, tilt = i * 1.1;
           const loc = [Math.cos(ang) * orb, Math.sin(ang) * orb * Math.cos(tilt), Math.sin(ang) * orb * Math.sin(tilt)];
@@ -392,6 +470,10 @@
     });
     bonds.forEach((b) => {
       const A = pos[b.a], B = pos[b.b], M = mul(add(A, B), 0.5), pa = P(A), pb = P(B), pm = P(M);
+      if (b.ty === "ion") { // イオン結合: 静電気の引力。点線で結ぶ
+        items.push({ d: pm.d, f: () => { g.save(); g.setLineDash([5, 4]); g.lineCap = "butt"; g.strokeStyle = "rgba(225,230,255," + (0.65 * b.rf) + ")"; g.lineWidth = Math.max(1.6, 0.05 * pm.s * (1 + b.hot)); g.beginPath(); g.moveTo(pa.x, pa.y); g.lineTo(pb.x, pb.y); g.stroke(); g.restore(); } });
+        return;
+      }
       const rad = (b.o === 1 ? 0.1 : b.o === 2 ? 0.13 : 0.15) * b.rf * sk.b, wpx = rad * pm.s;
       const ca = mix(COL[EL[b.a]], WARM, b.hot * 0.8), cb = mix(COL[EL[b.b]], WARM, b.hot * 0.8);
       const qa = P(mul(add(A, M), 0.5)), qb = P(mul(add(B, M), 0.5));
@@ -447,9 +529,9 @@
       g.strokeStyle = "rgba(140,148,176,.35)"; g.setLineDash([4, 4]); g.beginPath(); g.moveTo(L, Y(e)); g.lineTo(R, Y(e)); g.stroke(); g.setLineDash([]);
       g.fillStyle = col; g.textAlign = "right"; g.fillText(label, L - 6, Y(e));
     };
-    level(0, "0", "#8d93a8"); level(TOTAL_IN, "+" + TOTAL_IN, "#5cc8ff"); level(NET, fmt(NET), NET < 0 ? "#ff8a3d" : "#5cc8ff");
+    level(0, "0", "#8d93a8"); level(EHOLD, fmt(EHOLD), "#5cc8ff"); level(NET, fmt(NET), NET < 0 ? "#ff8a3d" : "#5cc8ff");
     g.fillStyle = "#8d93a8"; g.textAlign = "left";
-    g.fillText("反応物", L + 4, Y(0) + (NET < 0 ? -8 : 10)); g.fillText("ばらばらの原子", L + 4, Y(TOTAL_IN) - 8); g.fillText("生成物", L + 4, Y(NET) + (NET < 0 ? 10 : -8));
+    g.fillText("反応物", L + 4, Y(0) + (NET < 0 ? -8 : 10)); g.fillText("ばらばらの原子", L + 4, Y(EHOLD) - 8); g.fillText("生成物", L + 4, Y(NET) + (NET < 0 ? 10 : -8));
     g.textAlign = "center"; g.fillText("時間 →", (L + R) / 2, H - 6);
     const N = 260, pts = []; for (let i = 0; i <= N; i++) pts.push([i / N, energyAt(i / N)]);
     g.lineWidth = 2; g.lineJoin = "round"; g.strokeStyle = "rgba(140,148,176,.28)"; g.beginPath(); pts.forEach((p, i) => { i ? g.lineTo(X(p[0]), Y(p[1])) : g.moveTo(X(p[0]), Y(p[1])); }); g.stroke();
@@ -461,11 +543,19 @@
       g.beginPath(); g.moveTo(X(pts[i - 1][0]), Y(pts[i - 1][1])); g.lineTo(X(pts[i][0]), Y(pts[i][1])); g.stroke();
     }
     g.font = "10.5px -apple-system, 'Yu Gothic UI', sans-serif";
-    GROUPS.forEach((gr) => { // 結合の種類ごとの注釈(上り坂は左、下り坂は右の空きに置く)
+    const placed = []; // 注釈どうしが重ならないよう、少しずつ上へずらす
+    GROUPS.forEach((gr) => {
       const mid = (gr.w0 + gr.w1) / 2; if (t <= mid) return;
-      const cold = gr.kind === "break", label = gr.name + (gr.n > 1 ? " ×" + gr.n : "") + " " + (cold ? "+" : "−") + gr.e;
-      g.fillStyle = cold ? "#5cc8ff" : "#ff8a3d"; g.textAlign = cold ? "right" : "left";
-      g.fillText(label, X(mid) + (cold ? -9 : 9), Y(energyAt(mid)) + (cold ? -3 : -3));
+      const cold = gr.dE > 0, label = gr.name + (gr.n > 1 ? " ×" + gr.n : "") + (gr.dE ? " " + fmt(gr.dE) : "");
+      const w = g.measureText(label).width; let right = cold, x = X(mid) + (cold ? -9 : 9), y = Y(energyAt(mid)) - 3;
+      if (!right && x + w > W - 4) right = true, x = X(mid) - 9;
+      for (let guard = 0; guard < 8; guard++) {
+        const x0 = right ? x - w : x, hit = placed.some((p) => x0 < p.x1 && x0 + w > p.x0 && Math.abs(y - p.y) < 11);
+        if (!hit) break; y -= 11;
+      }
+      placed.push({ x0: right ? x - w : x, x1: right ? x : x + w, y });
+      g.fillStyle = gr.dE === 0 ? "#c9cde0" : cold ? "#5cc8ff" : "#ff8a3d"; g.textAlign = right ? "right" : "left";
+      g.fillText(label, x, Math.max(T - 2, y));
     });
     if (t > 0.93) { // 反応熱の矢印
       const x = R - 14, up = NET > 0, col = up ? "#5cc8ff" : "#ff8a3d", tip = Y(NET), s = up ? 1 : -1;
@@ -473,7 +563,7 @@
       g.beginPath(); g.moveTo(x - 5, tip + 10 * s); g.lineTo(x, tip); g.lineTo(x + 5, tip + 10 * s); g.fill();
       g.textAlign = "center"; g.fillText("反応熱 " + fmt(NET) + " kJ(" + (up ? "吸熱" : "発熱") + ")", X(0.5), Math.abs(Y(0) - Y(NET)) < 34 ? Math.max(Y(0), Y(NET)) + 14 : (Y(0) + Y(NET)) / 2);
     }
-    const mx = X(t), my = Y(Ecur); halo(g, mx, my, 16, Ecur > TOTAL_IN * 0.5 ? COLD : WARM, 0.8);
+    const mx = X(t), my = Y(Ecur); halo(g, mx, my, 16, Ecur > EHOLD * 0.5 ? COLD : WARM, 0.8);
     g.fillStyle = "#fff"; g.beginPath(); g.arc(mx, my, 3.5, 0, TAU); g.fill();
   }
 
@@ -497,7 +587,7 @@
   controls(rx.cv, rx.cam, (x, y) => {
     let best = null;
     rx.hits.forEach((h) => { if (Math.hypot(x - h.x, y - h.y) <= h.r && (!best || h.d < best.d)) best = h; });
-    if (best) { atom.el = best.el; atom.ion = 0; setTab("at"); }
+    if (best && ELS[best.el]) { atom.el = best.el; atom.ion = 0; setTab("at"); }
   });
 
   // =====================================================================

@@ -9,7 +9,7 @@
   const spi = (id) => D().speciesInfo(id);
   const GAS = new Set(["hydrogen", "oxygen", "nitrogen", "chlorine", "co2", "co", "so2", "h2s", "ammonia", "methane", "ethylene", "ethane", "acetylene"]);
   // 分子ラボ(lab3d.html)に、3D の定義がある反応式。lab3d.js の RXNS の gid と同じ id を並べる
-  const LAB_EQ = new Set(["water_syn", "methane_burn", "haber", "water_elec", "h2o2_dec", "sabatier", "hydrogenation"]);
+  const LAB_EQ = new Set(["water_syn", "methane_burn", "haber", "water_elec", "h2o2_dec", "sabatier", "hydrogenation", "coal_burn", "sulfur_burn", "hg_ox", "cu_ox", "rust", "nacl_elec"]);
   function openLab(id) {
     if (document.getElementById("labOverlay")) return;
     const o = document.createElement("div"); o.id = "labOverlay";
