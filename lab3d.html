@@ -53,9 +53,11 @@
 
 <!-- ===== 反応ビュー ===== -->
 <section id="viewRx">
+  <div class="chips" id="rxChips"></div>
+  <div class="ctl" style="margin-top:0"><span style="font-size:13px;color:var(--dim)">表示</span><button class="btn on" id="stBS">ボール&スティック</button><button class="btn" id="stSF">空間充填</button><button class="btn" id="stST">スティック</button></div>
   <div class="stage">
     <canvas id="cv"></canvas>
-    <div class="caption"><b id="capT">水素の燃焼</b><div id="capS">2H₂ + O₂ → 2H₂O</div></div>
+    <div class="caption"><b id="capT"></b><div id="capS"></div></div>
     <div class="hint">ドラッグで回転 / ホイールで拡大 / 原子をタップ → 原子の中身</div>
   </div>
   <div class="steps" id="steps"></div>
@@ -77,7 +79,7 @@
       <div class="hotc">結合ができて放出</div><div class="v hotc" id="lgOut">0 kJ</div>
     </div>
     <div class="ledger total"><div>差し引き(反応熱)</div><div class="v" id="lgNet">0 kJ</div></div>
-    <div class="note">切る: H–H 436 × 2 + O=O 498 = 1370 kJ ／ つくる: O–H 463 × 4 = 1852 kJ ／ 差 −482 kJ(発熱)。平均結合エネルギーによる近似値。実測は −484 kJ。</div>
+    <div class="note" id="rxNote"></div>
   </div>
   <div class="legend">
     <span><i style="background:#f4f4f4"></i>水素</span><span><i style="background:#e34234"></i>酸素</span>
@@ -88,6 +90,7 @@
 <!-- ===== 原子ビュー ===== -->
 <section id="viewAt" class="hidden">
   <div class="chips" id="elChips"></div>
+  <div class="ctl"><button class="btn on" id="mdBohr">ボーア模型(軌道を回る粒)</button><button class="btn" id="mdCloud">電子雲(見つかりやすさ)</button></div>
   <div class="stage">
     <canvas id="cvAt"></canvas>
     <div class="caption"><b id="atT"></b><div id="atS"></div></div>
