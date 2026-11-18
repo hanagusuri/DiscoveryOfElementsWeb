@@ -24,8 +24,8 @@
   const rnd = (a, b) => a + Math.random() * (b - a);
 
   // ---- 色・半径(CPK 配色) ----
-  const COL = { H: [244, 244, 244], He: [217, 255, 255], C: [96, 96, 104], N: [60, 90, 250], O: [227, 66, 52], Na: [171, 92, 242], Cl: [40, 220, 60], S: [235, 215, 60], Cu: [205, 120, 70], Fe: [170, 110, 95], Hg: [160, 170, 185] };
-  const RAD = { H: 0.34, He: 0.3, C: 0.5, N: 0.5, O: 0.52, Na: 0.6, Cl: 0.6, S: 0.58, Cu: 0.55, Fe: 0.55, Hg: 0.6 };
+  const COL = { H: [244, 244, 244], He: [217, 255, 255], C: [96, 96, 104], N: [60, 90, 250], O: [227, 66, 52], Na: [171, 92, 242], Cl: [40, 220, 60], S: [235, 215, 60], Cu: [205, 120, 70], Fe: [170, 110, 95], Hg: [160, 170, 185], Pb: [110, 115, 140], Al: [190, 195, 205], Ca: [140, 200, 150] };
+  const RAD = { H: 0.34, He: 0.3, C: 0.5, N: 0.5, O: 0.52, Na: 0.6, Cl: 0.6, S: 0.58, Cu: 0.55, Fe: 0.55, Hg: 0.6, Pb: 0.6, Al: 0.55, Ca: 0.65 };
   const COLD = [92, 200, 255], WARM = [255, 138, 61], YEL = [255, 216, 74];
   const rgb = (c, k = 1, a = 1) => "rgba(" + Math.min(255, c[0] * k) + "," + Math.min(255, c[1] * k) + "," + Math.min(255, c[2] * k) + "," + a + ")";
   const mix = (a, b, k) => [lerp(a[0], b[0], k), lerp(a[1], b[1], k), lerp(a[2], b[2], k)];
@@ -109,7 +109,7 @@
     return { name: k.replace("-", "–").replace("#", "≡"), e: BD[k][1] };
   }
   const fmt = (v) => (v < 0 ? "−" : v > 0 ? "+" : "") + Math.abs(Math.round(v));
-  const VE = { H: 1, C: 4, N: 5, O: 6, Cl: 7, S: 6, Na: 1, Cu: 2, Fe: 2, Hg: 2 };
+  const VE = { H: 1, C: 4, N: 5, O: 6, Cl: 7, S: 6, Na: 1, Cu: 2, Fe: 2, Hg: 2, Pb: 2, Al: 3, Ca: 2 };
 
   // 分子の雛形: 原子 [元素, 局所座標(Å)] と結合 [原子A, 原子B, 結合次数]
   const tet = (s) => [[1, 1, 1], [1, -1, -1], [-1, 1, -1], [-1, -1, 1]].map((v) => mul(v, s / Math.sqrt(3)));
@@ -135,6 +135,17 @@
     HgO: { name: "HgO", static: true, atoms: [["Hg", [-1.05, 0, 0], 2], ["O", [1.05, 0, 0], -2]], bonds: [[0, 1, 1, { ty: "ion", e: 401, name: "Hg²⁺–O²⁻" }]] },
     Fe2O3: { name: "Fe₂O₃", static: true, atoms: [["Fe", [-1.2, 0, 0], 3], ["Fe", [1.2, 0, 0], 3], ["O", [0, 1.4, 0], -2], ["O", [0, -0.7, 1.2], -2], ["O", [0, -0.7, -1.2], -2]], bonds: [[0, 2], [0, 3], [0, 4], [1, 2], [1, 3], [1, 4]].map((b, i) => [b[0], b[1], 1, { ty: "ion", e: i % 2 ? 400 : 401, name: "Fe³⁺–O²⁻" }]) },
     Na2Cl2: { name: "2NaCl", static: true, atoms: [["Na", [-1.3, -1.3, 0], 1], ["Cl", [1.3, -1.3, 0], -1], ["Na", [1.3, 1.3, 0], 1], ["Cl", [-1.3, 1.3, 0], -1]], bonds: [[0, 1], [1, 2], [2, 3], [3, 0]].map((b, i) => [b[0], b[1], 1, { ty: "ion", e: i % 2 ? 393 : 394, name: "Na⁺–Cl⁻" }]) },
+    Pb_s: { name: "Pb", static: true, atoms: [["Pb", [0, 0, 0]]], bonds: [], solid: { e: 195, label: "Pb(金属)", stubs: 4, ty: "met" } },
+    Al_s: { name: "Al", static: true, atoms: [["Al", [0, 0, 0]]], bonds: [], solid: { e: 326, label: "Al(金属)", stubs: 4, ty: "met" } },
+    PbO: { name: "PbO", static: true, atoms: [["Pb", [-1.05, 0, 0], 2], ["O", [1.05, 0, 0], -2]], bonds: [[0, 1, 1, { ty: "ion", e: 661, name: "Pb²⁺–O²⁻" }]] },
+    Al2O3: { name: "Al₂O₃", static: true, atoms: [["Al", [-1.2, 0, 0], 3], ["Al", [1.2, 0, 0], 3], ["O", [0, 1.4, 0], -2], ["O", [0, -0.7, 1.2], -2], ["O", [0, -0.7, -1.2], -2]], bonds: [[0, 2], [0, 3], [0, 4], [1, 2], [1, 3], [1, 4]].map((b, i) => [b[0], b[1], 1, { ty: "ion", e: i % 2 ? 512 : 513, name: "Al³⁺–O²⁻" }]) },
+    CaO: { name: "CaO", static: true, atoms: [["Ca", [-1.2, 0, 0], 2], ["O", [1.2, 0, 0], -2]], bonds: [[0, 1, 1, { ty: "ion", e: 1062, name: "Ca²⁺–O²⁻" }]] },
+    CaOH2: { name: "Ca(OH)₂", static: true, atoms: [["Ca", [0, 0, 0], 2], ["O", [-2.0, 0, 0], -1], ["O", [2.0, 0, 0], -1], ["H", [-2.96, 0, 0]], ["H", [2.96, 0, 0]]], bonds: [[0, 1, 1, { ty: "ion", e: 586, name: "Ca²⁺–OH⁻" }], [0, 2, 1, { ty: "ion", e: 586, name: "Ca²⁺–OH⁻" }], [1, 3, 1], [2, 4, 1]] },
+    CaCO3: { name: "CaCO₃", static: true, atoms: [["Ca", [0, -2.6, 0], 2], ["C", [0, 0, 0]], ["O", [1.12, -0.65, 0], -1], ["O", [-1.12, -0.65, 0], -1], ["O", [0, 1.29, 0]]], bonds: [[1, 4, 2], [1, 2, 1], [1, 3, 1], [0, 2, 1, { ty: "ion", e: 662, name: "Ca²⁺–O⁻" }], [0, 3, 1, { ty: "ion", e: 661, name: "Ca²⁺–O⁻" }]] },
+    CaCl2: { name: "CaCl₂", static: true, atoms: [["Ca", [0, 0, 0], 2], ["Cl", [-2.0, 0, 0], -1], ["Cl", [2.0, 0, 0], -1]], bonds: [[0, 1, 1, { ty: "ion", e: 609, name: "Ca²⁺–Cl⁻" }], [0, 2, 1, { ty: "ion", e: 608, name: "Ca²⁺–Cl⁻" }]] },
+    NaOH: { name: "NaOH", static: true, atoms: [["Na", [-1.6, 0, 0], 1], ["O", [0.2, 0, 0], -1], ["H", [1.16, 0, 0]]], bonds: [[0, 1, 1, { ty: "ion", e: 537, name: "Na⁺–OH⁻" }], [1, 2, 1]] },
+    C2H2: { name: "C₂H₂", atoms: [["C", [-0.6, 0, 0]], ["C", [0.6, 0, 0]], ["H", [-1.66, 0, 0]], ["H", [1.66, 0, 0]]], bonds: [[0, 1, 3], [0, 2, 1], [1, 3, 1]] },
+    C6H6: { name: "C₆H₆", atoms: [0, 1, 2, 3, 4, 5].map((k) => ["C", [1.4 * Math.cos(k * TAU / 6), 1.4 * Math.sin(k * TAU / 6), 0]]).concat([0, 1, 2, 3, 4, 5].map((k) => ["H", [2.48 * Math.cos(k * TAU / 6), 2.48 * Math.sin(k * TAU / 6), 0]])), bonds: [[0, 1, 2], [1, 2, 1], [2, 3, 2], [3, 4, 1], [4, 5, 2], [5, 0, 1]].concat([0, 1, 2, 3, 4, 5].map((k) => [k, 6 + k, 1])) },
     NO: { name: "NO", atoms: [["N", [-0.58, 0, 0]], ["O", [0.58, 0, 0]]], bonds: [[0, 1, 2]] },
     H2O: { name: "H₂O", atoms: [["O", [0, -0.07, 0]], ["H", [0.757, 0.517, 0]], ["H", [-0.757, 0.517, 0]]], bonds: [[0, 1, 1], [0, 2, 1]] },
     CO2: { name: "CO₂", atoms: [["C", [0, 0, 0]], ["O", [1.16, 0, 0]], ["O", [-1.16, 0, 0]]], bonds: [[0, 1, 2], [0, 2, 2]] },
@@ -159,6 +170,18 @@
     { id: "hg", gid: "hg_ox", name: "水銀の酸化", react: ["Hg_s", "Hg_s", "O2"], prod: ["HgO", "HgO"], map: [0, 2, 1, 3], actual: -182, basis: "液体の水銀から原子を切り離すエネルギー(61)を使う。酸化物の結晶ができる値(401)は、生成熱から逆算した値。" },
     { id: "rust", gid: "rust", name: "鉄の錆", react: ["Fe_s", "Fe_s", "Fe_s", "Fe_s", "O2", "O2", "O2"], prod: ["Fe2O3", "Fe2O3"], map: [0, 1, 4, 5, 6, 2, 3, 7, 8, 9], actual: -1648, basis: "金属から原子を切り離すエネルギー(416)を使う。酸化物の結晶ができる値(Fe–O 1 本あたり約 400)は、生成熱から逆算した値。" },
     { id: "nacl", gid: "nacl_elec", name: "塩の電気分解(吸熱)", react: ["Na2Cl2"], prod: ["Na_s", "Na_s", "Cl2"], map: [0, 2, 1, 3], actual: 822, xfer: { "Na:1>0": { e: -496, name: "Na⁺ + e⁻ → Na" }, "Cl:-1>0": { e: 349, name: "Cl⁻ → Cl + e⁻" } }, basis: "ボルン・ハーバー・サイクルの値: 格子エネルギー 787、Na のイオン化エネルギー 496、Cl の電子親和力 349、Na の昇華 107、Cl–Cl 243(NaCl 1 mol あたり)。実際の電気分解では、このエネルギーを電気で与える。" },
+    // ---- 残りの反応式(石灰・還元・テルミット・電解など)。水は気体として数える ----
+    { id: "hgo_dec", gid: "hgo_dec", name: "酸化水銀の分解", react: ["HgO", "HgO"], prod: ["Hg_s", "Hg_s", "O2"], map: [0, 2, 1, 3], actual: 182, basis: "酸化物の結晶を壊す値(401)は、生成熱から逆算した値。液体の水銀になる熱(61)を含む。" },
+    { id: "cuo_h2", gid: "cuo_h2", name: "酸化銅の水素還元", react: ["CuO", "H2"], prod: ["Cu_s", "H2O"], map: [0, 1, 2, 3], actual: -84, basis: "酸化物の結晶を壊す値(743)は、生成熱から逆算した値。水は気体として数える。" },
+    { id: "pbo_h2", gid: "pbo_h2", name: "酸化鉛の水素還元", react: ["PbO", "H2"], prod: ["Pb_s", "H2O"], map: [0, 1, 2, 3], actual: -24, basis: "酸化物の結晶を壊す値(661)は、生成熱から逆算した値。水は気体として数える。" },
+    { id: "thermite", gid: "thermite", name: "テルミット反応", react: ["Fe2O3", "Al_s", "Al_s"], prod: ["Al2O3", "Fe_s", "Fe_s"], map: [5, 6, 2, 3, 4, 0, 1], actual: -852, basis: "鉄の酸化物を壊す値と、アルミナの結晶ができる値(Al–O 1 本あたり約 512)は、生成熱から逆算した値。アルミナのほうが、はるかに安定なので、大きな熱が出る。" },
+    { id: "blast", gid: "blast", name: "高炉での鉄の還元", react: ["Fe2O3", "CO", "CO", "CO"], prod: ["Fe_s", "Fe_s", "CO2", "CO2", "CO2"], map: [0, 1, 5, 6, 2, 7, 8, 3, 9, 10, 4], actual: -25, basis: "鉄の酸化物を壊す値は生成熱から逆算した値。CO の三重結合は、CO₂ の二重結合に変わる(差の分だけ切れる)。" },
+    { id: "alumina_elec", gid: "alumina_elec", name: "アルミナの電解(吸熱)", react: ["Al2O3", "Al2O3"], prod: ["Al_s", "Al_s", "Al_s", "Al_s", "O2", "O2", "O2"], map: [0, 1, 5, 6, 2, 7, 3, 8, 4, 9], actual: 3351, basis: "アルミナの結晶を壊す値は、生成熱から逆算した値。とても安定なので、電気分解には大量のエネルギーが要る。" },
+    { id: "lime_slake", gid: "lime_slake", name: "生石灰に水", react: ["CaO", "H2O"], prod: ["CaOH2"], map: [0, 1, 2, 3, 4], actual: -109, basis: "結晶の結合の強さは、生成熱から逆算した値(CaO の Ca–O 1062 が、Ca(OH)₂ では 586 に)。同じ結合が強さを変えて残る分は『結合の強さの変化』として数える。水は気体として数える。" },
+    { id: "caco3_dec", gid: "caco3_dec", name: "石灰石の熱分解(吸熱)", react: ["CaCO3"], prod: ["CaO", "CO2"], map: [0, 3, 1, 2, 4], actual: 178, basis: "炭酸塩のイオン結合の強さ(約 660)は、生成熱から逆算した値。CaO ができると Ca–O が 1062 に強くなる。" },
+    { id: "limestone_acid", gid: "limestone_acid", name: "石灰石と塩酸", react: ["CaCO3", "HCl", "HCl"], prod: ["CaCl2", "H2O", "CO2"], map: [0, 6, 8, 3, 5, 7, 1, 2, 4], actual: -39, basis: "結晶の結合の強さは生成熱から逆算した値。HCl・水・CO₂ は気体として数える(実際は水溶液)。" },
+    { id: "na_water", gid: "na_water", name: "ナトリウムと水", react: ["Na_s", "Na_s", "H2O", "H2O"], prod: ["NaOH", "NaOH", "H2"], map: [0, 2, 3, 1, 5, 6, 4, 7], actual: -368, basis: "金属から原子を切り離す値(107)を使う。水酸化ナトリウムの Na–O(537)は、生成熱から逆算した値。水は気体として数える。" },
+    { id: "benzene", gid: "benzene_syn", name: "アセチレンからベンゼン", react: ["C2H2", "C2H2", "C2H2"], prod: ["C6H6"], map: [0, 1, 4, 5, 8, 9, 2, 3, 6, 7, 10, 11], actual: -631, basis: "平均結合エネルギーでは −366 kJ。実測との差は、ベンゼンの電子が環全体に広がる安定化(共鳴)など、平均値では表せない分。" },
   ];
 
   const eqText = (d) => molList(d.react) + " → " + molList(d.prod);
@@ -253,10 +276,13 @@
     // 切れる結合 / できる結合 / そのままの結合
     const key = (a, b) => (a < b ? a + "_" + b : b + "_" + a);
     const rMap = new Map(rb.map((b) => [key(b.a, b.b), b])), pMap = new Map(pb.map((b) => [key(b.a, b.b), b]));
-    const stays = [];
+    const stays = [], adjusts = [];
     rb.forEach((b) => { // 結合の次数だけが変わるもの(C=C → C–C など)は「一部だけ切れる」として扱う
       const p = pMap.get(key(b.a, b.b));
-      if (p && p.o === b.o) stays.push(b); else if (p && p.o < b.o) breaks.push({ a: b.a, b: b.b, o: b.o, oFrom: b.o, oTo: p.o, partial: true, ty: "cov" }); else if (!p) breaks.push(b);
+      if (p && p.o === b.o) { // 同じ結合が、強さを変えて残るもの(石灰の反応など)は、強さの差を、独立したイベントにする
+        stays.push(b);
+        if (b.ov && p.ov && b.ov.e !== p.ov.e) adjusts.push({ a: b.a, b: b.b, o: b.o, ty: b.ty, self: true, adj: true, dE: b.ov.e - p.ov.e, e: Math.abs(b.ov.e - p.ov.e), name: b.ov.name + "→" + p.ov.name });
+      } else if (p && p.o < b.o) breaks.push({ a: b.a, b: b.b, o: b.o, oFrom: b.o, oTo: p.o, partial: true, ty: "cov" }); else if (!p) breaks.push(b);
     });
     pb.forEach((b) => {
       const r = rMap.get(key(b.a, b.b));
@@ -269,19 +295,19 @@
       xfers.push({ a: j, b: j, o: 1, self: true, xfer: true, ty: "cov", dE: x.e, name: x.name, e: Math.abs(x.e) });
     });
     const finish = (list, kind, ws) => list.forEach((x, i) => {
-      if (!x.xfer) {
+      if (!x.xfer && !x.adj) {
         const el1 = atoms[x.a].el, el2 = atoms[x.b].el;
         let info = bondInfo(el1, el2, x.o, x.ov);
         if (x.partial) { const f = bondInfo(el1, el2, x.oFrom), t = bondInfo(el1, el2, x.oTo); info = { name: f.name + "→" + t.name, e: Math.abs(f.e - t.e) }; }
         Object.assign(x, info, { dE: kind === "break" ? info.e : -info.e });
       }
-      x.w = ws[i]; x.kind = x.xfer ? "xfer" : kind;
+      x.w = ws[i]; x.kind = x.xfer ? "xfer" : x.adj ? (x.dE > 0 ? "break" : "form") : kind;
     });
     finish(breaks, "break", windows(breaks.length, 0.27, 0.51));
-    const post = xfers.concat(forms);
+    const post = xfers.concat(adjusts, forms);
     const ws = windows(post.length, 0.62, 0.92);
     post.forEach((x, i) => finish([x], "form", [ws[i]]));
-    const span = (list, j) => { const w = list.filter((x) => !x.partial && !x.xfer && (x.a === j || x.b === j)).map((x) => x.w); return w.length ? [Math.min(...w.map((q) => q[0])), Math.max(...w.map((q) => q[1]))] : null; };
+    const span = (list, j) => { const w = list.filter((x) => !x.partial && !x.xfer && !x.adj && (x.a === j || x.b === j)).map((x) => x.w); return w.length ? [Math.min(...w.map((q) => q[0])), Math.max(...w.map((q) => q[1]))] : null; };
     const xw = new Array(N).fill(null); xfers.forEach((x) => { xw[x.a] = x.w; });
     return {
       def, atoms, mols, R, F, P, DR, breaks, post, stays, pm, q0: atoms.map((a) => a.q), q1: Q1, xw, stubR: STUBR, stubP: STUBP,
