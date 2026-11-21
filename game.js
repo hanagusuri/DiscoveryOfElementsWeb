@@ -969,7 +969,7 @@
         ? $t(`<div class="big">{0}</div><div class="kind">{1}を発見</div><h2>{2}</h2>`, [items[fresh_[0]].emoji, TYPE_LABEL[items[fresh_[0]].type], items[fresh_[0]].name])
         : $t(`<div class="kind">新発見</div><div class="multi">{0}</div>`, [fresh_.map((o) => `<div><div class="big">${items[o].emoji}</div>${items[o].name}</div>`).join("")]);
       const details = fresh_.map((o) => `<div class="desc"><b>${items[o].name}</b>: ${items[o].desc}</div>${window.HIST ? HIST.cardHtml(o) : ""}${usesHtml(o, true)}${items[o].note ? `<div class="note">${items[o].note}</div>` : ""}`).join("");
-      showCard($t(`{0}<div class="story">{1}</div>{2}{3}<div class="note">知識 +{4}</div>`, [body, r.text, whyHtml(r), details, gain]), () => {
+      showCard($t(`{0}<div class="story">{1}</div>{2}{3}<div class="note">知識 +{4}</div>`, [body, r.text, whyHtml(r) + (window.LAB3D ? LAB3D.cardHtml(r) : ""), details, gain]), () => {
         if (newEra) toast($t(`新時代へ: {0}`, [ERAS[newEra].name]));
       });
     }, 900);

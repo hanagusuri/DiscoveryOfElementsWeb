@@ -136,4 +136,6 @@ I18N.add({
   "反応式": "Equations", "イオン": "Ions", "分析": "Analysis", "モル": "Moles", "反応式づくり": "Balancing",
   "分子の動きを3Dで見る": "Watch the molecules in 3D", "閉じる": "Close",
   [`<div class="eqrow dim">🔒 「反応熱」の概念を得ると、分子の動きを3Dで見られる</div>`]: `<div class="eqrow dim">🔒 Learn the concept of “heat of reaction” to watch the molecules in 3D</div>`,
+  "この反応を、分子の動きで見る(3D)": "Watch this reaction in 3D",
+  [`<div class="eqrow dim">🔒 「反応熱」の概念を得ると、この反応を3Dで見られる</div>`]: `<div class="eqrow dim">🔒 Learn the concept of “heat of reaction” to watch this reaction in 3D</div>`,
 });

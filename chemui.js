@@ -19,6 +19,21 @@
     o.querySelector(".labclose").onclick = close; document.addEventListener("keydown", onKey);
     document.body.appendChild(o);
   }
+  // 実験の直後に出す「3Dで見る」: 反応式との対応(レシピの材料 → 反応式)から、その反応の 3D を開く
+  let eqOfKey = null;
+  function labEq(r) {
+    if (!eqOfKey) { eqOfKey = {}; D().EQUATIONS.forEach((e) => { if (e.rec) eqOfKey[[...e.rec].sort().join("+")] = e; }); }
+    const eq = r && eqOfKey[r.key];
+    return eq && LAB_EQ.has(eq.id) ? eq : null;
+  }
+  const labUnlocked = () => has("enthalpy"); // 反応熱の概念を得ていれば(チートなら常に)
+  const labLink = (id) => `<button class="lab3dlink" data-xa="lab3d" data-v="${id}">🔬3D</button>`;
+  // 発見カードに足す HTML(ボタン、または、まだ開いていないことの案内)
+  function labCard(r) {
+    const eq = labEq(r); if (!eq) return "";
+    return labUnlocked() ? `<button class="lab3dbtn" data-xa="lab3d" data-v="${eq.id}">🔬 ${$t("この反応を、分子の動きで見る(3D)")}</button>` : $t(`<div class="eqrow dim">🔒 「反応熱」の概念を得ると、この反応を3Dで見られる</div>`);
+  }
+  window.LAB3D = { cardHtml: labCard, open: openLab };
   const BASE_C = 0.1, VA = 20.0; // 滴定: NaOH 0.100 mol/L で、未知の塩酸 20.0 mL を滴定する
 
   let anaSample = null, anaReagent = null, anaLog = [], titrInd = "php", calcSel = null, calcVal = "", calcUnit = "g", quizQ = null;
@@ -428,7 +443,7 @@
       note = owned("calorimeter") ? $t(`(熱量計: ΔH = {0}{1} kJ)`, [dh > 0 ? "+" : "", dh]) : dh < 0 ? $t("(熱が出た)") : $t("(熱を吸った)");
     }
     if (owned("enthalpy") || owned("calorimeter")) { if (Object.keys(S_.eqSeen).length >= 6 && owned("enthalpy")) api.grantConcept("hess_law"); }
-    return (fresh ? $t(" 📐反応式を記録") : "") + (note ? " " + note : "");
+    return (fresh ? $t(" 📐反応式を記録") : "") + (note ? " " + note : "") + (labEq(r) && labUnlocked() ? " " + labLink(eq.id) : "");
   }
 
   function render(i) { return [reactionsHTML, ionsHTML, analysisHTML, moleHTML, builderHTML][i](); }

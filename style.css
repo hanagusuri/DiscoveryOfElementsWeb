@@ -313,3 +313,5 @@ body.shake main, body.shake header#top { animation: shk .5s; }
 #labOverlay { position: fixed; inset: 0; z-index: 40; background: var(--bg); }
 #labOverlay iframe { width: 100%; height: 100%; border: 0; display: block; }
 #labOverlay .labclose { position: absolute; top: calc(var(--sat) + 8px); right: 12px; z-index: 2; padding: 6px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel2); color: var(--text); font: inherit; cursor: pointer; }
+.lab3dlink { margin-left: 4px; padding: 1px 8px; border-radius: 99px; border: 1px solid var(--accent2); background: #14282a; color: var(--accent2); font: inherit; font-size: 12px; cursor: pointer; vertical-align: 1px; }
+#card .lab3dbtn { margin: 8px 0 4px; }
