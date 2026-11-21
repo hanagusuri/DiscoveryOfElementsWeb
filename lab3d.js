@@ -24,8 +24,8 @@
   const rnd = (a, b) => a + Math.random() * (b - a);
 
   // ---- 色・半径(CPK 配色) ----
-  const COL = { H: [244, 244, 244], He: [217, 255, 255], C: [96, 96, 104], N: [60, 90, 250], O: [227, 66, 52], Na: [171, 92, 242], Cl: [40, 220, 60], S: [235, 215, 60], Cu: [205, 120, 70], Fe: [170, 110, 95], Hg: [160, 170, 185], Pb: [110, 115, 140], Al: [190, 195, 205], Ca: [140, 200, 150] };
-  const RAD = { H: 0.34, He: 0.3, C: 0.5, N: 0.5, O: 0.52, Na: 0.6, Cl: 0.6, S: 0.58, Cu: 0.55, Fe: 0.55, Hg: 0.6, Pb: 0.6, Al: 0.55, Ca: 0.65 };
+  const COL = { H: [244, 244, 244], He: [217, 255, 255], C: [96, 96, 104], N: [60, 90, 250], O: [227, 66, 52], Na: [171, 92, 242], Cl: [40, 220, 60], S: [235, 215, 60], Cu: [205, 120, 70], Fe: [170, 110, 95], Hg: [160, 170, 185], Pb: [110, 115, 140], Al: [190, 195, 205], Ca: [140, 200, 150], Zn: [125, 130, 176], K: [195, 110, 215] };
+  const RAD = { H: 0.34, He: 0.3, C: 0.5, N: 0.5, O: 0.52, Na: 0.6, Cl: 0.6, S: 0.58, Cu: 0.55, Fe: 0.55, Hg: 0.6, Pb: 0.6, Al: 0.55, Ca: 0.65, Zn: 0.55, K: 0.7 };
   const COLD = [92, 200, 255], WARM = [255, 138, 61], YEL = [255, 216, 74];
   const rgb = (c, k = 1, a = 1) => "rgba(" + Math.min(255, c[0] * k) + "," + Math.min(255, c[1] * k) + "," + Math.min(255, c[2] * k) + "," + a + ")";
   const mix = (a, b, k) => [lerp(a[0], b[0], k), lerp(a[1], b[1], k), lerp(a[2], b[2], k)];
@@ -109,10 +109,31 @@
     return { name: k.replace("-", "–").replace("#", "≡"), e: BD[k][1] };
   }
   const fmt = (v) => (v < 0 ? "−" : v > 0 ? "+" : "") + Math.abs(Math.round(v));
-  const VE = { H: 1, C: 4, N: 5, O: 6, Cl: 7, S: 6, Na: 1, Cu: 2, Fe: 2, Hg: 2, Pb: 2, Al: 3, Ca: 2 };
+  const VE = { H: 1, C: 4, N: 5, O: 6, Cl: 7, S: 6, Na: 1, Cu: 2, Fe: 2, Hg: 2, Pb: 2, Al: 3, Ca: 2, Zn: 2, K: 1 };
 
   // 分子の雛形: 原子 [元素, 局所座標(Å)] と結合 [原子A, 原子B, 結合次数]
   const tet = (s) => [[1, 1, 1], [1, -1, -1], [-1, 1, -1], [-1, -1, 1]].map((v) => mul(v, s / Math.sqrt(3)));
+  // 大きな分子の座標を、関数で組み立てる
+  const hAt = (o, dir, len) => add(o, mul(norm(dir), len));
+  const TET = tet(1.45);
+  const glucoseAtoms = (() => { // ブドウ糖(ピラノース環): 0-4 C1..C5, 5 環の O, 6 C6, 7-10 O1..O4, 11 O6, 12-16 C1..C5 の H, 17-18 C6 の H, 19-22 HO1..HO4, 23 HO6
+    const rad = (k) => [Math.cos(k * TAU / 6), Math.sin(k * TAU / 6), 0], tan = (k) => [-Math.sin(k * TAU / 6), Math.cos(k * TAU / 6), 0], sg = (k) => (k % 2 ? 1 : -1);
+    const rp = [0, 1, 2, 3, 4, 5].map((k) => [1.45 * Math.cos(k * TAU / 6), 1.45 * Math.sin(k * TAU / 6), k % 2 ? 0.3 : -0.3]);
+    const P = new Array(24), el = ["C", "C", "C", "C", "C", "O", "C", "O", "O", "O", "O", "O"].concat(Array(12).fill("H"));
+    for (let k = 0; k < 6; k++) P[k] = rp[k];
+    for (let k = 0; k < 4; k++) {
+      P[7 + k] = hAt(rp[k], add(mul(rad(k), 0.5), [0, 0, sg(k) * 0.85]), 1.43);
+      P[12 + k] = hAt(rp[k], add(mul(rad(k), 0.8), [0, 0, -sg(k) * 0.6]), 1.09);
+      P[19 + k] = hAt(P[7 + k], add(add(mul(rad(k), 0.6), mul(tan(k), 0.5)), [0, 0, sg(k) * 0.4]), 0.96);
+    }
+    P[16] = hAt(rp[4], add(mul(rad(4), 0.5), [0, 0, sg(4) * 0.85]), 1.09);
+    P[6] = hAt(rp[4], add(mul(rad(4), 0.9), [0, 0, -sg(4) * 0.35]), 1.52);
+    P[11] = hAt(P[6], add(add(mul(rad(4), 0.5), mul(tan(4), 0.6)), [0, 0, 0.5]), 1.43);
+    P[17] = hAt(P[6], add(add(mul(rad(4), 0.4), mul(tan(4), -0.6)), [0, 0, 0.7]), 1.09);
+    P[18] = hAt(P[6], add(add(mul(rad(4), 0.4), mul(tan(4), -0.6)), [0, 0, -0.7]), 1.09);
+    P[23] = hAt(P[11], add(add(mul(rad(4), 0.6), mul(tan(4), 0.5)), [0, 0, 0.3]), 0.96);
+    return el.map((e, i) => [e, P[i]]);
+  })();
   const MOLT = {
     H2: { name: "H₂", atoms: [["H", [-0.37, 0, 0]], ["H", [0.37, 0, 0]]], bonds: [[0, 1, 1]] },
     O2: { name: "O₂", atoms: [["O", [-0.605, 0, 0]], ["O", [0.605, 0, 0]]], bonds: [[0, 1, 2]] },
@@ -123,7 +144,7 @@
     H2O2: { name: "H₂O₂", atoms: [["O", [-0.74, 0, 0]], ["O", [0.74, 0, 0]], ["H", [-0.907, 0.946, 0]], ["H", [0.907, -0.339, 0.883]]], bonds: [[0, 1, 1], [0, 2, 1], [1, 3, 1]] },
     C2H4: { name: "C₂H₄", atoms: [["C", [-0.67, 0, 0]], ["C", [0.67, 0, 0]], ["H", [-1.24, 0.93, 0]], ["H", [-1.24, -0.93, 0]], ["H", [1.24, 0.93, 0]], ["H", [1.24, -0.93, 0]]], bonds: [[0, 1, 2], [0, 2, 1], [0, 3, 1], [1, 4, 1], [1, 5, 1]] },
     C2H6: { name: "C₂H₆", atoms: [["C", [-0.77, 0, 0]], ["C", [0.77, 0, 0]]].concat([0, 1, 2].map((k) => ["H", [-1.133, 1.027 * Math.cos(k * TAU / 3), 1.027 * Math.sin(k * TAU / 3)]]), [0, 1, 2].map((k) => ["H", [1.133, 1.027 * Math.cos(k * TAU / 3 + Math.PI / 3), 1.027 * Math.sin(k * TAU / 3 + Math.PI / 3)]])), bonds: [[0, 1, 1], [0, 2, 1], [0, 3, 1], [0, 4, 1], [1, 5, 1], [1, 6, 1], [1, 7, 1]] },
-    SO2: { name: "SO₂", atoms: [["S", [0, 0.24, 0]], ["O", [1.233, -0.48, 0]], ["O", [-1.233, -0.48, 0]]], bonds: [[0, 1, 2], [0, 2, 2]] },
+    SO2: { name: "SO₂", atoms: [["S", [0, 0.24, 0]], ["O", [1.233, -0.48, 0]], ["O", [-1.233, -0.48, 0]]], bonds: [[0, 1, 2, { e: 538, name: "S=O" }], [0, 2, 2, { e: 538, name: "S=O" }]] },
     // ---- 固体・イオン結晶(static: 動き回らない。solid: 単原子の固体。結晶から切り離す/結晶になるエネルギーを持つ)----
     C_s: { name: "C", static: true, atoms: [["C", [0, 0, 0]]], bonds: [], solid: { e: 717, label: "C(黒鉛)", stubs: 3, ty: "net" } },
     S_s: { name: "S", static: true, atoms: [["S", [0, 0, 0]]], bonds: [], solid: { e: 279, label: "S(結晶)", stubs: 2, ty: "net" } },
@@ -146,6 +167,24 @@
     NaOH: { name: "NaOH", static: true, atoms: [["Na", [-1.6, 0, 0], 1], ["O", [0.2, 0, 0], -1], ["H", [1.16, 0, 0]]], bonds: [[0, 1, 1, { ty: "ion", e: 537, name: "Na⁺–OH⁻" }], [1, 2, 1]] },
     C2H2: { name: "C₂H₂", atoms: [["C", [-0.6, 0, 0]], ["C", [0.6, 0, 0]], ["H", [-1.66, 0, 0]], ["H", [1.66, 0, 0]]], bonds: [[0, 1, 3], [0, 2, 1], [1, 3, 1]] },
     C6H6: { name: "C₆H₆", atoms: [0, 1, 2, 3, 4, 5].map((k) => ["C", [1.4 * Math.cos(k * TAU / 6), 1.4 * Math.sin(k * TAU / 6), 0]]).concat([0, 1, 2, 3, 4, 5].map((k) => ["H", [2.48 * Math.cos(k * TAU / 6), 2.48 * Math.sin(k * TAU / 6), 0]])), bonds: [[0, 1, 2], [1, 2, 1], [2, 3, 2], [3, 4, 1], [4, 5, 2], [5, 0, 1]].concat([0, 1, 2, 3, 4, 5].map((k) => [k, 6 + k, 1])) },
+    Zn_s: { name: "Zn", static: true, atoms: [["Zn", [0, 0, 0]]], bonds: [], solid: { e: 130, label: "Zn(金属)", stubs: 4, ty: "met" } },
+    // ---- 水溶液のイオン(static。まわりに水分子の殻 = 水和 をまとう)----
+    Zn2: { name: "Zn²⁺", static: true, atoms: [["Zn", [0, 0, 0], 2]], bonds: [], hyd: { e: 2046, label: "Zn²⁺の水和", n: 4 } },
+    Cu2: { name: "Cu²⁺", static: true, atoms: [["Cu", [0, 0, 0], 2]], bonds: [], hyd: { e: 2100, label: "Cu²⁺の水和", n: 4 } },
+    Fe2: { name: "Fe²⁺", static: true, atoms: [["Fe", [0, 0, 0], 2]], bonds: [], hyd: { e: 1950, label: "Fe²⁺の水和", n: 4 } },
+    Hp: { name: "H⁺", static: true, atoms: [["H", [0, 0, 0], 1]], bonds: [], hyd: { e: 1090, label: "H⁺の水和", n: 4 } },
+    Nap: { name: "Na⁺", static: true, atoms: [["Na", [0, 0, 0], 1]], bonds: [], hyd: { e: 409, label: "Na⁺の水和", n: 4 } },
+    Clm: { name: "Cl⁻", static: true, atoms: [["Cl", [0, 0, 0], -1]], bonds: [], hyd: { e: 374, label: "Cl⁻の水和", n: 4 } },
+    OHm: { name: "OH⁻", static: true, atoms: [["O", [-0.48, 0, 0], -1], ["H", [0.48, 0, 0]]], bonds: [[0, 1, 1]], hyd: { e: 530, label: "OH⁻の水和", n: 3, atom: 0 } },
+    H2Oaq: { name: "H₂O", static: true, atoms: [["O", [0, -0.07, 0]], ["H", [0.757, 0.517, 0]], ["H", [-0.757, 0.517, 0]]], bonds: [[0, 1, 1], [0, 2, 1]] },
+    H2S: { name: "H₂S", atoms: [["S", [0, -0.45, 0]], ["H", [0.964, 0.48, 0]], ["H", [-0.964, 0.48, 0]]], bonds: [[0, 1, 1, { e: 363, name: "S–H" }], [0, 2, 1, { e: 363, name: "S–H" }]] },
+    H2SO4: { name: "H₂SO₄", atoms: [["S", [0, 0, 0]], ["O", TET[0]], ["O", TET[1]], ["O", TET[2]], ["O", TET[3]], ["H", hAt(TET[2], add(norm(TET[2]), [0, 0.8, 0]), 0.96)], ["H", hAt(TET[3], add(norm(TET[3]), [0, 0.8, 0]), 0.96)]], bonds: [[0, 1, 2], [0, 2, 2], [0, 3, 1], [0, 4, 1], [3, 5, 1], [4, 6, 1]] },
+    Na2SO4: { name: "Na₂SO₄", static: true, atoms: [["Na", hAt(TET[2], TET[2], 3.7), 1], ["Na", hAt(TET[3], TET[3], 3.7), 1], ["S", [0, 0, 0]], ["O", TET[0]], ["O", TET[1]], ["O", TET[2], -1], ["O", TET[3], -1]], bonds: [[2, 3, 2], [2, 4, 2], [2, 5, 1], [2, 6, 1], [0, 5, 1, { ty: "ion", e: 787, name: "Na⁺–O⁻" }], [1, 6, 1, { ty: "ion", e: 787, name: "Na⁺–O⁻" }]] },
+    KClO3: { name: "KClO₃", static: true, atoms: [["K", [3.2, -0.6, 0], 1], ["Cl", [0, 0, 0]], ["O", [1.3, -0.5, 0], -1], ["O", [-0.65, -0.5, 1.13]], ["O", [-0.65, -0.5, -1.13]]], bonds: [[1, 2, 1, { e: 205, name: "Cl–O" }], [1, 3, 2, { e: 243, name: "Cl=O" }], [1, 4, 2, { e: 243, name: "Cl=O" }], [0, 2, 1, { ty: "ion", e: 665, name: "K⁺–O⁻" }]] },
+    KCl: { name: "KCl", static: true, atoms: [["K", [-1.4, 0, 0], 1], ["Cl", [1.4, 0, 0], -1]], bonds: [[0, 1, 1, { ty: "ion", e: 648, name: "K⁺–Cl⁻" }]] },
+    CaC2: { name: "CaC₂", static: true, atoms: [["Ca", [0, 0, 0], 2], ["C", [-0.6, 2.3, 0], -1], ["C", [0.6, 2.3, 0], -1]], bonds: [[1, 2, 3], [0, 1, 1, { ty: "ion", e: 428, name: "Ca²⁺–C⁻" }], [0, 2, 1, { ty: "ion", e: 428, name: "Ca²⁺–C⁻" }]] },
+    C6H12O6: { name: "C₆H₁₂O₆", atoms: glucoseAtoms, bonds: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 0], [4, 6], [0, 7], [1, 8], [2, 9], [3, 10], [6, 11], [0, 12], [1, 13], [2, 14], [3, 15], [4, 16], [6, 17], [6, 18], [7, 19], [8, 20], [9, 21], [10, 22], [11, 23]].map((b) => [b[0], b[1], 1]) },
+    C2H5OH: { name: "C₂H₅OH", atoms: [["C", [0, 0, 0]], ["C", [1.52, 0, 0]], ["O", [2.12, 1.30, 0]], ["H", [-0.36, 1.03, 0]], ["H", [-0.36, -0.51, 0.89]], ["H", [-0.36, -0.51, -0.89]], ["H", hAt([1.52, 0, 0], [0.35, -0.6, 0.75], 1.09)], ["H", hAt([1.52, 0, 0], [0.35, -0.6, -0.75], 1.09)], ["H", [2.12 + 0.5, 1.30 + 0.82, 0]]], bonds: [[0, 1, 1], [1, 2, 1], [2, 8, 1], [0, 3, 1], [0, 4, 1], [0, 5, 1], [1, 6, 1], [1, 7, 1]] },
     NO: { name: "NO", atoms: [["N", [-0.58, 0, 0]], ["O", [0.58, 0, 0]]], bonds: [[0, 1, 2]] },
     H2O: { name: "H₂O", atoms: [["O", [0, -0.07, 0]], ["H", [0.757, 0.517, 0]], ["H", [-0.757, 0.517, 0]]], bonds: [[0, 1, 1], [0, 2, 1]] },
     CO2: { name: "CO₂", atoms: [["C", [0, 0, 0]], ["O", [1.16, 0, 0]], ["O", [-1.16, 0, 0]]], bonds: [[0, 1, 2], [0, 2, 2]] },
@@ -182,6 +221,18 @@
     { id: "limestone_acid", gid: "limestone_acid", name: "石灰石と塩酸", react: ["CaCO3", "HCl", "HCl"], prod: ["CaCl2", "H2O", "CO2"], map: [0, 6, 8, 3, 5, 7, 1, 2, 4], actual: -39, basis: "結晶の結合の強さは生成熱から逆算した値。HCl・水・CO₂ は気体として数える(実際は水溶液)。" },
     { id: "na_water", gid: "na_water", name: "ナトリウムと水", react: ["Na_s", "Na_s", "H2O", "H2O"], prod: ["NaOH", "NaOH", "H2"], map: [0, 2, 3, 1, 5, 6, 4, 7], actual: -368, basis: "金属から原子を切り離す値(107)を使う。水酸化ナトリウムの Na–O(537)は、生成熱から逆算した値。水は気体として数える。" },
     { id: "benzene", gid: "benzene_syn", name: "アセチレンからベンゼン", react: ["C2H2", "C2H2", "C2H2"], prod: ["C6H6"], map: [0, 1, 4, 5, 8, 9, 2, 3, 6, 7, 10, 11], actual: -631, basis: "平均結合エネルギーでは −366 kJ。実測との差は、ベンゼンの電子が環全体に広がる安定化(共鳴)など、平均値では表せない分。" },
+    // ---- 水溶液: 硫酸イオンのように、反応の前後で変わらないイオンは描かない(ネットイオン式)。イオンの殻 = 水和 を、エネルギーのイベントにする ----
+    { id: "zn_acid", gid: "zn_acid", name: "亜鉛と硫酸(水素の発生)", aq: true, react: ["Zn_s", "Hp", "Hp"], prod: ["Zn2", "H2"], map: [0, 1, 2], actual: -154, xfer: { "Zn:0>2": { e: 2639, name: "Zn → Zn²⁺ + 2e⁻" }, "H:1>0": { e: -1312, name: "H⁺ + e⁻ → H" } }, basis: "Zn + 2H⁺ → Zn²⁺ + H₂ という、イオンの反応だけを描く(硫酸イオンは、前後で変わらない見物人)。亜鉛の原子化 130、Zn のイオン化エネルギー 2639、H の電子親和力 1312、H⁺ の水和 1090、Zn²⁺ の水和 2046(いずれも mol あたり)で組み立てた。" },
+    { id: "cement", gid: "cement", name: "硫酸銅と鉄(銅がでる)", aq: true, react: ["Cu2", "Fe_s"], prod: ["Cu_s", "Fe2"], map: [0, 1], actual: -154, xfer: { "Cu:2>0": { e: -2703, name: "Cu²⁺ + 2e⁻ → Cu" }, "Fe:0>2": { e: 2321, name: "Fe → Fe²⁺ + 2e⁻" } }, basis: "Cu²⁺ + Fe → Cu + Fe²⁺ という、イオンの反応だけを描く(硫酸イオンは見物人)。イオン化エネルギー・水和エネルギー(Cu²⁺ 2100、Fe²⁺ 1950)・金属の原子化の足し算。水和エネルギーは文献値の幅があるので、ざっくりした値。" },
+    { id: "neutral", gid: "neutral", name: "中和(酸と塩基)", aq: true, react: ["Hp", "OHm"], prod: ["H2Oaq"], map: [1, 2, 0], actual: -57, xfer: { "H:1>0": { e: -1172, name: "H⁺と OH⁻ の静電引力" } }, extra: [{ name: "水蒸気 → 水(凝縮)", dE: -44, atom: 1 }], basis: "H⁺ + OH⁻ → H₂O を描く(Na⁺ や Cl⁻ は見物人)。水和をはがす 1090 + 530 のあと、気体中で H⁺ と OH⁻ が結びつく熱は 1635(O–H 結合 463 + 静電引力 1172)、さらに水蒸気が液体の水になる 44。" },
+    { id: "nacl_dissolve", name: "食塩が水に溶ける", aq: true, react: ["Na2Cl2"], prod: ["Nap", "Nap", "Clm", "Clm"], map: [0, 2, 1, 3], actual: 8, basis: "結晶のイオン結合を壊す 1574(2 mol 分)と、イオンの水和(Na⁺ 409、Cl⁻ 374)で出る熱がほぼ釣り合う。だから、食塩は、溶けても、ほとんど熱が出入りしない。" },
+    // ---- 残り: 大きな分子・硫酸塩・硫化物。結晶の結合の強さは、実測の反応熱に合わせて逆算した値 ----
+    { id: "nacl_acid", gid: "nacl_acid", name: "塩と硫酸(塩酸の製法)", react: ["Na2Cl2", "H2SO4"], prod: ["Na2SO4", "HCl", "HCl"], map: [0, 2, 4, 5, 6, 7, 8, 9, 1, 10, 3], actual: 65, basis: "食塩の結晶を壊す 1574(2 mol 分)と、硫酸の O–H(463 × 2)を使う。硫酸ナトリウムの結晶の Na–O(787)は、反応熱に合わせて逆算した値。HCl は気体として逃げていく。吸熱だが、気体が逃げるので反応が進む。" },
+    { id: "chlorate_dec", gid: "chlorate_dec", name: "塩素酸カリウムの分解(酸素の製法)", react: ["KClO3", "KClO3"], prod: ["KCl", "KCl", "O2", "O2", "O2"], map: [0, 1, 5, 6, 2, 7, 3, 8, 4, 9], actual: -78, basis: "塩素酸イオンの Cl–O(205・243)は目安の値。K–O(665)と KCl の K–Cl(648)は、生成熱から逆算した値。" },
+    { id: "carbide", gid: "carbide_water", name: "カーバイドと水", react: ["CaC2", "H2O", "H2O"], prod: ["C2H2", "CaOH2"], map: [1, 2, 4, 7, 0, 3, 6, 5, 8], actual: -216, basis: "CaC₂ の Ca–C(428)は、反応熱に合わせて逆算した値。水は気体として数える(液体の水なら −128)。アセチレンの三重結合は、そのまま残る。" },
+    { id: "claus", gid: "claus", name: "二酸化硫黄と硫化水素", react: ["SO2", "H2S", "H2S"], prod: ["S_s", "S_s", "S_s", "H2O", "H2O"], map: [0, 3, 6, 1, 4, 5, 2, 7, 8], actual: -146, basis: "SO₂ の S=O(538)と H₂S の S–H(363)は、分子ごとの値を使った。水は気体として数える(液体の水なら −234)。" },
+    { id: "glucose_burn", gid: "glucose_burn", name: "グルコースの燃焼(呼吸)", react: ["C6H12O6", "O2", "O2", "O2", "O2", "O2", "O2"], prod: ["CO2", "CO2", "CO2", "CO2", "CO2", "CO2", "H2O", "H2O", "H2O", "H2O", "H2O", "H2O"], map: [0, 7, 25, 1, 8, 27, 2, 9, 29, 3, 10, 31, 4, 5, 33, 6, 11, 35, 24, 12, 19, 26, 13, 20, 28, 14, 21, 30, 15, 22, 32, 16, 23, 34, 17, 18], actual: -2538, basis: "分子が大きいので、平均結合エネルギーの誤差が目立つ(約 7%)。水は気体として数える(液体の水なら −2803)。体の中では、この熱を、少しずつ、段階をふんで取り出す。" },
+    { id: "ferment", gid: "ferment", name: "アルコール発酵", react: ["C6H12O6"], prod: ["C2H5OH", "C2H5OH", "CO2", "CO2"], map: [0, 1, 8, 12, 19, 14, 13, 21, 20, 6, 4, 5, 17, 18, 23, 16, 22, 15, 2, 9, 7, 3, 10, 11], actual: -69, basis: "実際の発熱は小さい(−69 kJ)。平均結合エネルギーでは −215 kJ と大きくずれる。差が熱の大きさに近いほど、平均値では当てられない、という例。酵母は、この小さな熱と引き換えに、ATP をつくる。" },
   ];
 
   const eqText = (d) => molList(d.react) + " → " + molList(d.prod);
@@ -236,11 +287,15 @@
     const rb = [], pb = [], breaks = [], forms = [], xfers = [];
     mols.forEach((m) => {
       m.t.bonds.forEach((b) => rb.push({ a: m.base + b[0], b: m.base + b[1], o: b[2], ty: (b[3] && b[3].ty) || "cov", ov: b[3] || null }));
+      if (m.t.hyd) { const k = m.t.hyd.atom || 0; breaks.push({ a: m.base + k, b: m.base + k, o: 1, self: true, ty: "hyd", ov: { e: m.t.hyd.e, name: m.t.hyd.label } }); }
       if (m.t.solid) m.t.atoms.forEach((_, k) => breaks.push({ a: m.base + k, b: m.base + k, o: 1, self: true, ty: m.t.solid.ty, ov: { e: m.t.solid.e, name: m.t.solid.label } }));
     });
     // 生成物の配置: 反応物のどの原子から来たかに合わせて、向きと位置を決める
     let base = 0; const P = new Array(N), pOf = new Array(N), Q1 = new Array(N).fill(0), STUBP = new Array(N).fill(null), STUBR = new Array(N).fill(null);
-    mols.forEach((m) => { if (m.t.solid) m.t.atoms.forEach((_, k) => { STUBR[m.base + k] = { n: m.t.solid.stubs, ty: m.t.solid.ty }; }); });
+    mols.forEach((m) => {
+      if (m.t.solid) m.t.atoms.forEach((_, k) => { STUBR[m.base + k] = { n: m.t.solid.stubs, ty: m.t.solid.ty }; });
+      if (m.t.hyd) STUBR[m.base + (m.t.hyd.atom || 0)] = { n: m.t.hyd.n, ty: "hyd" };
+    });
     def.prod.forEach((k, pi) => {
       const t = MOLT[k], idx = t.atoms.map((_, q) => def.map[base + q]), lc = centroid(t.atoms.map((a) => a[1])), loc = t.atoms.map((a) => sub(a[1], lc));
       const tg = idx.map((j) => R[j]), cen = centroid(tg); let best = null;
@@ -252,6 +307,7 @@
       pm.push({ idx, c: cen, rel: best.rel, t });
       t.atoms.forEach((a, q) => { Q1[idx[q]] = a[2] || 0; if (t.solid) STUBP[idx[q]] = { n: t.solid.stubs, ty: t.solid.ty }; });
       t.bonds.forEach((b) => pb.push({ a: idx[b[0]], b: idx[b[1]], o: b[2], ty: (b[3] && b[3].ty) || "cov", ov: b[3] || null }));
+      if (t.hyd) { const q = t.hyd.atom || 0; STUBP[idx[q]] = { n: t.hyd.n, ty: "hyd" }; forms.push({ a: idx[q], b: idx[q], o: 1, self: true, ty: "hyd", ov: { e: t.hyd.e, name: t.hyd.label } }); }
       if (t.solid) t.atoms.forEach((_, q) => forms.push({ a: idx[q], b: idx[q], o: 1, self: true, ty: t.solid.ty, ov: { e: t.solid.e, name: t.solid.label } }));
       base += t.atoms.length;
     });
@@ -304,6 +360,7 @@
       x.w = ws[i]; x.kind = x.xfer ? "xfer" : x.adj ? (x.dE > 0 ? "break" : "form") : kind;
     });
     finish(breaks, "break", windows(breaks.length, 0.27, 0.51));
+    (def.extra || []).forEach((x) => adjusts.push({ a: x.atom, b: x.atom, o: 1, ty: "cov", self: true, adj: true, dE: x.dE, e: Math.abs(x.dE), name: x.name }));
     const post = xfers.concat(adjusts, forms);
     const ws = windows(post.length, 0.62, 0.92);
     post.forEach((x, i) => finish([x], "form", [ws[i]]));
@@ -441,6 +498,14 @@
   function renderRx(now, dt) {
     const { g, W, H, cam } = rx, t = rx.t, sk = STYLE[rx.style];
     g.clearRect(0, 0, W, H);
+    if (CUR.aq) { // 水溶液: うっすら青く、泡がのぼる
+      halo(g, W / 2, H / 2, H * 0.9, [60, 130, 210], 0.17);
+      g.strokeStyle = "rgba(160,205,255,.22)"; g.lineWidth = 1.2;
+      for (let b = 0; b < 26; b++) {
+        const f = (b * 0.618) % 1, x = W * (0.08 + 0.84 * ((b * 0.377) % 1)) + 6 * Math.sin(now * 0.8 + b), y = H - ((now * (14 + 22 * f) + b * 57) % (H + 30)) + 10;
+        g.beginPath(); g.arc(x, y, 2 + f * 5, 0, TAU); g.stroke();
+      }
+    }
     const unit = H * (EXT > 4.5 ? 0.4 : 0.55) / (EXT + 1.0) * (rx.style === "sf" ? 0.8 : 1), P = makeProj(cam, W, H, unit);
     const E = energyAt(t), outNow = EVTS.reduce((s, x) => s + Math.max(0, -x.dE) * prog(t, x.w), 0), inNow = EVTS.reduce((s, x) => s + Math.max(0, x.dE) * prog(t, x.w), 0);
     const cold = clamp(E / Math.max(1, EHOLD)), warm = clamp(outNow / Math.max(1, TOTAL_OUT)) * (1 - 0.6 * prog(t, [0.9, 1])) * (NET < 0 ? 1 : 0.5);
@@ -476,7 +541,17 @@
       }
       // 結晶につながっている「手」(固体の原子): 切り離されるまで/結晶になるまで、うっすら見える
       const sR = STUB_R[i] ? 1 - (BW[i] ? prog(t, BW[i]) : 0) : 0, sP = STUB_P[i] ? prog(t, FW[i]) : 0, spec = sR >= sP ? STUB_R[i] : STUB_P[i], str = Math.max(sR, sP);
-      if (spec && str > 0.03) {
+      if (spec && str > 0.03 && spec.ty === "hyd") { // 水和: イオンのまわりに集まる水分子(陽イオンには O、陰イオンには H が向く)
+        const cat = qc >= 0, dist = (RAD[el] + 0.95) * (0.65 + 0.35 * str);
+        for (let k = 0; k < spec.n; k++) {
+          const dv = norm(rodrigues(fib(k, spec.n), [0, 1, 0], now * 0.35 + i)), per = norm(cross(dv, [0.3, 1, 0.2])), cen = add(p, mul(dv, dist)), sg = cat ? 1 : -1;
+          const oP = P(cen), h1 = P(add(cen, add(mul(dv, 0.42 * sg), mul(per, 0.52)))), h2 = P(add(cen, add(mul(dv, 0.42 * sg), mul(per, -0.52))));
+          const al = 0.9 * str;
+          items.push({ d: oP.d, f: () => { g.globalAlpha = al; g.strokeStyle = "rgba(235,235,245,.7)"; g.lineWidth = 2; g.beginPath(); g.moveTo(h1.x, h1.y); g.lineTo(oP.x, oP.y); g.lineTo(h2.x, h2.y); g.stroke(); sphere(g, oP.x, oP.y, 0.2 * oP.s, COL.O, 0, 0); g.globalAlpha = 1; } });
+          items.push({ d: h1.d, f: () => { g.globalAlpha = al; sphere(g, h1.x, h1.y, 0.12 * h1.s, COL.H, 0, 0); g.globalAlpha = 1; } });
+          items.push({ d: h2.d, f: () => { g.globalAlpha = al; sphere(g, h2.x, h2.y, 0.12 * h2.s, COL.H, 0, 0); g.globalAlpha = 1; } });
+        }
+      } else if (spec && str > 0.03) {
         const col = spec.ty === "met" ? [255, 190, 110] : [200, 200, 220];
         for (let k = 0; k < spec.n; k++) {
           const an = TAU * k / spec.n + 0.5, dv = norm([Math.cos(an), -0.35, Math.sin(an)]), tip = P(add(p, mul(dv, 1.15 * (0.6 + 0.4 * str))));

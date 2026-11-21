@@ -9,7 +9,7 @@
   const spi = (id) => D().speciesInfo(id);
   const GAS = new Set(["hydrogen", "oxygen", "nitrogen", "chlorine", "co2", "co", "so2", "h2s", "ammonia", "methane", "ethylene", "ethane", "acetylene"]);
   // 分子ラボ(lab3d.html)に、3D の定義がある反応式。lab3d.js の RXNS の gid と同じ id を並べる
-  const LAB_EQ = new Set(["water_syn", "methane_burn", "haber", "water_elec", "h2o2_dec", "sabatier", "hydrogenation", "coal_burn", "sulfur_burn", "hg_ox", "cu_ox", "rust", "nacl_elec", "hgo_dec", "cuo_h2", "pbo_h2", "thermite", "blast", "alumina_elec", "lime_slake", "caco3_dec", "limestone_acid", "na_water", "benzene_syn"]);
+  const LAB_EQ = new Set(["water_syn", "methane_burn", "haber", "water_elec", "h2o2_dec", "sabatier", "hydrogenation", "coal_burn", "sulfur_burn", "hg_ox", "cu_ox", "rust", "nacl_elec", "hgo_dec", "cuo_h2", "pbo_h2", "thermite", "blast", "alumina_elec", "lime_slake", "caco3_dec", "limestone_acid", "na_water", "benzene_syn", "zn_acid", "cement", "neutral", "nacl_acid", "chlorate_dec", "carbide_water", "claus", "glucose_burn", "ferment"]);
   function openLab(id) {
     if (document.getElementById("labOverlay")) return;
     const o = document.createElement("div"); o.id = "labOverlay";
